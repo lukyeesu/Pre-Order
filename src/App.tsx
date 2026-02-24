@@ -671,6 +671,7 @@ function App() {
     try {
       await callServerAPI('saveUser', updatedUser);
       setCurrentUser(updatedUser);
+      if (localStorage.getItem('savedUser')) localStorage.setItem('savedUser', JSON.stringify(updatedUser));
       setUsersList(usersList.map(u => u.id === currentUser.id ? updatedUser : u));
       showToast('บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว');
     } catch (err) {
@@ -896,7 +897,10 @@ function App() {
         setUsersList(usersList.map(u => u.id === userData.id ? userData : u));
         showToast('อัปเดตข้อมูลผู้ใช้เรียบร้อยแล้ว');
         // Update current user context if editing self
-        if (currentUser?.id === userData.id) setCurrentUser({ ...currentUser, ...userData });
+        if (currentUser?.id === userData.id) {
+           setCurrentUser({ ...currentUser, ...userData });
+           if (localStorage.getItem('savedUser')) localStorage.setItem('savedUser', JSON.stringify({ ...currentUser, ...userData }));
+        }
       } else {
         setUsersList([...usersList, userData]);
         showToast('เพิ่มผู้ใช้ใหม่เรียบร้อยแล้ว (รหัสผ่านเริ่มต้น 123456)');
