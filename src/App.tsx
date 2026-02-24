@@ -56,6 +56,7 @@ export interface Product {
   imageUrl: string;
   variations: Variation[];
   description: string;
+  images?: string[];
 }
 
 export interface ActualExpense {
@@ -254,6 +255,8 @@ function App() {
   const [formVariations, setFormVariations] = useState<Variation[]>([]);
   const [draftOrder, setDraftOrder] = useState<Order | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<string>('');
   const [checkoutForm, setCheckoutForm] = useState({
     userId: '', customerName: '', email: '', facebook: '', phone: '', address: '', deliveryMethod: 'shipping'
   });
@@ -1494,10 +1497,14 @@ function App() {
 
   const openModal = (type: string, data: any = null) => {
     setModal({ isOpen: true, type, data });
-    if (type === 'product_details' || type === 'product_details_for_order') setSelectedVariation('');
+    if (type === 'product_details' || type === 'product_details_for_order') {
+      setSelectedVariation('');
+      setSelectedImage(data?.imageUrl || '');
+    }
     if (type === 'product_form') {
       setFormVariations(data?.variations ? data.variations.map((v: Variation) => ({...v})) : []);
       setPreviewUrl(data?.imageUrl || '');
+      setPreviewUrls(data?.images || (data?.imageUrl ? [data.imageUrl] : []));
     }
     // หน่วงเวลาเล็กน้อยเพื่อให้ Element ถูก Render ก่อน แล้วค่อยใส่ Class โชว์ Animation
     setTimeout(() => setIsModalVisible(true), 10);
@@ -1510,6 +1517,8 @@ function App() {
       setModal({ isOpen: false, type: '', data: null });
       setFormVariations([]);
       setPreviewUrl('');
+      setPreviewUrls([]);
+      setSelectedImage('');
       if (modal.type === 'edit_order') setDraftOrder(null);
     }, 300); // 300ms ตรงกับระยะเวลา Transition
   };
@@ -1550,15 +1559,22 @@ function App() {
     });
   };
 
-  const processProductImageFile = async (file: File) => {
+  const processProductImageFiles = async (files: FileList | File[]) => {
     if (!sysSettings.driveProductFolderId) {
        showToast('กรุณาตั้งค่า Product Folder ID ในหน้าตั้งค่าระบบก่อน', 'warning');
        return;
     }
     setUploadProgress(10);
     try {
-      const url = await uploadImageToDrive(file, sysSettings.driveProductFolderId);
-      setPreviewUrl(url);
+      const fileArray = Array.from(files);
+      const uploadPromises = fileArray.map(file => uploadImageToDrive(file, sysSettings.driveProductFolderId));
+      const urls = await Promise.all(uploadPromises);
+      
+      setPreviewUrls(prev => {
+          const next = [...prev, ...urls];
+          if (!previewUrl && next.length > 0) setPreviewUrl(next[0]);
+          return next;
+      });
       setUploadProgress(100);
       setTimeout(() => setUploadProgress(0), 500);
     } catch(e) {
@@ -1584,19 +1600,26 @@ function App() {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) processProductImageFile(file);
+    if (e.target.files && e.target.files.length > 0) {
+      processProductImageFiles(e.target.files);
+    }
   };
 
   const handleProductImageDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     setIsProductImgDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      processProductImageFile(file);
-    } else if (file) {
-      showToast('กรุณาอัปโหลดเฉพาะไฟล์รูปภาพเท่านั้น', 'error');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const validFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (validFiles.length > 0) {
+        processProductImageFiles(validFiles);
+      } else {
+        showToast('กรุณาอัปโหลดเฉพาะไฟล์รูปภาพเท่านั้น', 'error');
+      }
     }
+  };
+
+  const removePreviewImage = (indexToRemove: number) => {
+    setPreviewUrls(prev => prev.filter((_, i) => i !== indexToRemove));
   };
 
   const handleProfileImageDrop = (e: React.DragEvent<HTMLLabelElement>) => {
@@ -1622,7 +1645,8 @@ function App() {
       stock: Number(formData.get('stock')),
       carryingFee: Number(formData.get('carryingFee')),
       shippingFee: Number(formData.get('shippingFee')), 
-      imageUrl: previewUrl,
+      imageUrl: previewUrls.length > 0 ? previewUrls[0] : '', // ใช้รูปแรกเป็นรูปหน้าปก
+      images: previewUrls,
       status: Number(formData.get('stock')) > 0 ? 'available' : 'sold_out',
       variations: cleanVariations,
       description: (formData.get('description') as string) || ''
@@ -3764,90 +3788,322 @@ function App() {
               </div>
             )}
 
-            {/* PRODUCT FORM MODAL */}
-            {modal.type === 'product_form' && (
-              <form className="flex flex-col md:flex-row w-full h-full flex-1 min-h-0" onSubmit={handleProductSubmit}>
-                <label 
-                  className={`w-full md:w-2/5 h-48 md:h-full flex-shrink-0 flex flex-col items-center justify-center p-8 border-b md:border-r relative cursor-pointer transition-all duration-300 group overflow-hidden ${isProductImgDragging ? 'bg-blue-50 border-blue-400 border-dashed border-2' : 'bg-slate-50 border-slate-100 hover:bg-slate-100/80'}`}
-                  onDragOver={(e) => { e.preventDefault(); setIsProductImgDragging(true); }}
-                  onDragLeave={() => setIsProductImgDragging(false)}
-                  onDrop={handleProductImageDrop}
-                >
-                  <input type="file" accept="image/png, image/jpeg, image/webp" className="hidden" onChange={handleImageChange} disabled={uploadProgress > 0} />
-                  
-                  {uploadProgress > 0 ? (
-                    <div className="flex flex-col items-center w-full max-w-[200px] z-20">
-                      <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
-                      <div className="w-full bg-slate-200 rounded-full h-2 mb-2 overflow-hidden">
-                        <div className="bg-blue-500 h-2 rounded-full transition-all duration-300 ease-out" style={{ width: `${uploadProgress}%` }}></div>
+            {/* STORE FOR ORDER MODAL */}
+            {modal.type === 'store_for_order' && (
+              <div className="flex flex-col h-full bg-slate-50">
+                <div className="flex justify-between items-center p-5 border-b border-slate-200 bg-white">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => openModal('edit_order')} className="p-2 bg-slate-100 rounded-full"><ArrowLeft className="w-5 h-5"/></button>
+                    <h3 className="text-xl font-black text-slate-800">เลือกสินค้าลงออเดอร์</h3>
+                  </div>
+                  <button onClick={closeModal} className="p-2 text-slate-400"><X className="w-6 h-6"/></button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-5">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
+                    {products.map((product) => {
+                      const isSoldOut = product.status === 'sold_out' || product.stock <= 0;
+                      return (
+                      <div key={product.id} onClick={() => { if (!isSoldOut) openModal('product_details_for_order', product) }}
+                        className={`bg-white rounded-2xl p-4 border transition-all relative overflow-hidden ${isSoldOut ? 'opacity-50 grayscale' : 'cursor-pointer hover:border-blue-400'}`}>
+                        {isSoldOut && (
+                           <div className="absolute top-5 -right-10 w-[140px] bg-rose-500/95 backdrop-blur-sm text-white text-[10px] font-black tracking-widest py-1 text-center rotate-45 z-50 uppercase shadow-md pointer-events-none">SOLD OUT</div>
+                        )}
+                        <div className="aspect-square bg-slate-50 rounded-xl mb-3 flex items-center justify-center overflow-hidden relative">
+                          {product.imageUrl ? (
+                            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-xl cursor-zoom-in hover:scale-105 transition-transform" onClick={(e) => { e.stopPropagation(); setZoomedImage(product.imageUrl); }} onError={(e) => {e.currentTarget.style.display='none'; if(e.currentTarget.nextSibling) (e.currentTarget.nextSibling as HTMLElement).style.display='block';}}/>
+                          ) : null}
+                          <ImageIcon className={`w-10 h-10 z-10 ${product.imageUrl ? 'hidden' : 'block'} text-slate-300`} strokeWidth={1.5} />
+                        </div>
+                        <h3 className="text-sm font-bold text-slate-800 line-clamp-2">{product.name}</h3>
+                        <div className="mt-2 flex justify-between items-end">
+                          <span className="text-blue-600 font-black">฿{product.price.toLocaleString()}</span>
+                          <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded">เหลือ {product.stock}</span>
+                        </div>
                       </div>
-                      <p className="text-xs font-bold text-slate-500 tracking-wider">กำลังอัปโหลด... {uploadProgress}%</p>
-                    </div>
-                  ) : previewUrl ? (
-                    <>
-                      <img src={previewUrl} alt="Preview" className={`w-48 h-48 object-cover rounded-2xl shadow-lg z-10 transition-transform duration-300 ${isProductImgDragging ? 'scale-95 opacity-50' : 'group-hover:scale-105'}`} onError={(e) => {e.currentTarget.style.display='none'; if(e.currentTarget.nextSibling) (e.currentTarget.nextSibling as HTMLElement).style.display='block';}} />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center z-20 md:rounded-l-3xl gap-2">
-                        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setZoomedImage(previewUrl); }} className="text-white font-bold text-sm bg-black/60 hover:bg-blue-600 px-4 py-2 rounded-xl backdrop-blur-md flex items-center gap-2 transition-colors cursor-pointer shadow-lg">
-                          <Search className="w-4 h-4"/> ขยายรูปภาพ
-                        </button>
-                        <span className="text-[10px] text-white/80 font-bold tracking-wider pointer-events-none">คลิกพื้นที่ว่างหรือลากไฟล์เพื่อเปลี่ยน</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className={`flex flex-col items-center z-10 text-center transition-transform ${isProductImgDragging ? 'scale-110' : ''}`}>
-                      <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 transition-all duration-300 ${isProductImgDragging ? 'bg-blue-100 text-blue-600 shadow-md' : 'bg-white shadow-sm group-hover:scale-110 text-blue-500'}`}>
-                        <Plus className="w-8 h-8" />
-                      </div>
-                      <p className={`text-sm font-bold transition-colors ${isProductImgDragging ? 'text-blue-600' : 'text-slate-600'}`}>
-                        {isProductImgDragging ? 'ปล่อยรูปภาพที่นี่' : 'คลิกหรือลากรูปภาพมาวาง'}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-1">รองรับ JPG, PNG, WEBP</p>
-                    </div>
-                  )}
-                  <button type="button" onClick={(e) => { e.preventDefault(); closeModal(); }} className="md:hidden absolute top-4 right-4 bg-white p-2 rounded-full shadow-sm z-30"><X className="w-5 h-5"/></button>
-                </label>
+                    )})}
+                  </div>
+                </div>
+              </div>
+            )}
 
-                <div className="w-full md:w-3/5 flex flex-col flex-1 min-h-0 bg-white">
-                  <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
-                    <h3 className="text-xl font-black text-slate-800">{modal.data ? 'แก้ไขสินค้า / EDIT' : 'เพิ่มสินค้าใหม่ / NEW ITEM'}</h3>
-                    <button type="button" onClick={closeModal} className="hidden md:block p-1 text-slate-400"><X className="w-6 h-6"/></button>
+            {/* PRODUCT DETAILS (Shared) */}
+            {(modal.type === 'product_details' || modal.type === 'product_details_for_order') && (
+              <div className="flex flex-col w-full h-full flex-1 min-h-0 bg-slate-50 relative overflow-hidden">
+                
+                {/* Scrollable Content Area */}
+                <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-y-auto md:overflow-hidden">
+                  
+                  {/* LEFT COLUMN: Image Gallery (Shopee/Lazada Style) */}
+                  <div className="w-full md:w-1/2 flex flex-col flex-shrink-0 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50 relative md:overflow-y-auto justify-start md:justify-center">
+                    {/* Mobile Close Button */}
+                    <button type="button" onClick={closeModal} className="md:hidden absolute top-3 right-3 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md z-30 hover:bg-slate-100 transition-colors"><X className="w-4 h-4 text-slate-700"/></button>
+                    
+                    {/* Main Image Box (มี Padding และ Shadow) */}
+                    <div className="p-5 sm:p-8 w-full flex-shrink-0 flex justify-center">
+                      <div className="w-full max-w-[280px] sm:max-w-[340px] md:max-w-full aspect-square relative bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] flex justify-center items-center overflow-hidden border border-slate-100 z-10">
+                        {selectedImage ? (
+                          <img src={selectedImage} alt={modal.data?.name} className="w-full h-full object-contain cursor-zoom-in hover:scale-105 transition-transform duration-500" onClick={() => setZoomedImage(selectedImage)} />
+                        ) : <ImageIcon className="w-16 h-16 sm:w-24 sm:h-24 text-slate-300" />}
+                      </div>
+                    </div>
+
+                    {/* Thumbnails Row (Horizontal Scroll) */}
+                    {modal.data?.images && modal.data.images.length > 1 && (
+                      <div className="px-5 sm:px-8 pb-5 sm:pb-8 flex gap-2.5 overflow-x-auto snap-x w-full flex-shrink-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {modal.data.images.map((img: string, idx: number) => {
+                          const isSelected = selectedImage === img;
+                          return (
+                            <button 
+                              key={idx} 
+                              onClick={() => setSelectedImage(img)} 
+                              className={`w-14 h-14 sm:w-16 sm:h-16 flex-shrink-0 rounded-xl overflow-hidden border-2 transition-all snap-start bg-white
+                                ${isSelected ? 'border-blue-500 shadow-md ring-2 ring-blue-500/20' : 'border-transparent opacity-60 hover:opacity-100 hover:border-slate-300'}
+                              `}
+                            >
+                              <img src={img} className="w-full h-full object-cover" alt={`thumb-${idx}`} />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                   
-                  <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+                  {/* RIGHT COLUMN: Info, Variations & Description (Scrollable) */}
+                  <div className="w-full md:w-1/2 flex flex-col flex-1 min-h-0 bg-white relative md:overflow-y-auto">
+                    {/* Desktop Close Button */}
+                    <div className="hidden md:flex justify-end p-4 sticky top-0 bg-white/95 backdrop-blur-sm z-20 border-b border-slate-100">
+                      <h4 className="font-black text-slate-800 flex items-center flex-1 ml-2">ข้อมูลสินค้า</h4>
+                      <button type="button" onClick={closeModal} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+                    </div>
+
+                    <div className="p-5 sm:p-6 md:pt-6 flex flex-col gap-6">
+                       {/* Core Info */}
+                       <div>
+                         <h3 className="text-xl sm:text-2xl font-black text-slate-800 leading-snug">{modal.data?.name}</h3>
+                         <div className="flex flex-wrap items-end gap-3 mt-3 sm:mt-4">
+                           <p className="text-3xl sm:text-4xl font-black text-blue-600 tracking-tight leading-none drop-shadow-sm">฿{Number(modal.data?.price || 0).toLocaleString()}</p>
+                           <span className="text-[11px] font-black text-rose-600 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-100 mb-0.5 sm:mb-1">เหลือ {modal.data?.stock} ชิ้น</span>
+                         </div>
+                         
+                         <div className="flex flex-wrap gap-2 mt-4">
+                           <span className={`text-[10px] font-bold px-2.5 py-1.5 rounded border flex items-center gap-1 ${Number(modal.data?.carryingFee) > 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><ShoppingBag className="w-3.5 h-3.5"/> ค่าหิ้ว ฿{Number(modal.data?.carryingFee || 0).toLocaleString()}</span>
+                           <span className={`text-[10px] font-bold px-2.5 py-1.5 rounded border flex items-center gap-1 ${Number(modal.data?.shippingFee) > 0 ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><Truck className="w-3.5 h-3.5"/> ค่าส่ง ฿{Number(modal.data?.shippingFee || 0).toLocaleString()}</span>
+                         </div>
+                       </div>
+
+                       {/* Variations */}
+                       {modal.data?.variations?.length > 0 && (
+                         <div className="border-t border-slate-100 pt-5">
+                           <div className="flex items-center justify-between mb-3">
+                             <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5"><Tags className="w-4 h-4 text-blue-500"/> ตัวเลือกสินค้า</h4>
+                             {selectedVariation && <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100 shadow-sm truncate max-w-[120px]">เลือก: {selectedVariation}</span>}
+                           </div>
+                           <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                             {modal.data.variations.map((v: Variation) => {
+                               const isSelected = selectedVariation === v.name;
+                               const isOutOfStock = v.stock <= 0 && activeTab === 'store';
+                               return (
+                                 <button key={v.name} onClick={() => setSelectedVariation(v.name)} disabled={isOutOfStock}
+                                   className={`relative flex flex-col items-center justify-center p-1.5 rounded-xl border-2 font-bold transition-all duration-200 aspect-square
+                                     ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm scale-[1.02]' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}
+                                     ${isOutOfStock ? 'opacity-50 cursor-not-allowed grayscale' : 'active:scale-95'}
+                                   `}>
+                                   {isSelected && <div className="absolute top-0 right-0 w-0 h-0 border-t-[16px] border-r-[16px] border-t-blue-500 border-r-transparent"><Check className="absolute -top-[16px] right-[1px] w-3 h-3 text-white stroke-[3]"/></div>}
+                                   <span className="text-[11px] z-10 w-full text-center px-0.5 leading-tight break-words line-clamp-2">{v.name}</span>
+                                   <span className={`text-[9px] mt-1 z-10 font-bold px-1.5 py-0.5 rounded-sm whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500')}`}>
+                                     {isOutOfStock ? 'หมด' : v.stock}
+                                   </span>
+                                 </button>
+                               )
+                             })}
+                           </div>
+                         </div>
+                       )}
+
+                       {/* Description */}
+                       <div className="border-t border-slate-100 pt-5">
+                         <div className="flex items-center gap-2 mb-3">
+                           <AlignLeft className="w-4 h-4 text-slate-400"/>
+                           <h4 className="text-sm font-black text-slate-800">รายละเอียดสินค้า</h4>
+                         </div>
+                         <div className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                           {modal.data?.description ? (
+                              <div className="bg-slate-50 border border-slate-100 shadow-sm p-4 sm:p-5 rounded-2xl">{modal.data.description}</div>
+                           ) : (
+                              <div className="flex flex-col items-center justify-center text-slate-400 italic bg-slate-50/50 rounded-xl border border-dashed border-slate-200 py-8">ไม่มีรายละเอียดสินค้าระบุไว้</div>
+                           )}
+                         </div>
+                       </div>
+
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* BOTTOM ACTION BAR (Compact) */}
+                <div className="w-full bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] z-20 p-2.5 sm:p-4 flex-shrink-0">
+                  <div className="flex flex-row justify-between items-center gap-3 sm:gap-4 max-w-5xl mx-auto w-full">
+                     
+                     {/* Compact Pricing Summary */}
+                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-0 sm:gap-4 pl-1 sm:pl-2">
+                       <span className="text-[9px] sm:text-[11px] text-slate-400 uppercase font-black tracking-wider">รวมต่อชิ้น</span>
+                       <span className="text-lg sm:text-2xl font-black text-blue-600 tracking-tight leading-none drop-shadow-sm">฿{(Number(modal.data?.price || 0) + Number(modal.data?.carryingFee || 0) + Number(modal.data?.shippingFee || 0)).toLocaleString()}</span>
+                     </div>
+
+                     {/* Action Button */}
+                     <div className="flex-1 sm:flex-none flex justify-end">
+                      {modal.type === 'product_details_for_order' ? (
+                        <button onClick={() => {
+                          if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้า', 'warning'); return; }
+                          addProductToDraftOrder(modal.data, selectedVariation);
+                        }} className="w-full sm:w-[220px] bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(147,51,234,0.3)] transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><Plus className="w-4 h-4 sm:w-5 sm:h-5" /> เพิ่มลงออเดอร์</button>
+                      ) : activeTab === 'products' ? (
+                        <button onClick={() => openModal('product_form', modal.data)} className="w-full sm:w-[220px] bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><Edit className="w-4 h-4 sm:w-5 sm:h-5" /> แก้ไขสินค้า</button>
+                      ) : (
+                        <button onClick={() => {
+                          if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้าก่อน', 'warning'); return; }
+                          addToCart(modal.data, selectedVariation); closeModal();
+                        }} disabled={modal.data?.status === 'sold_out' || modal.data?.stock <= 0}
+                        className="w-full sm:w-[220px] bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 active:scale-[0.98] disabled:active:scale-100 text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(14,165,233,0.3)] disabled:shadow-none transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> {modal.data?.status === 'sold_out' || modal.data?.stock <= 0 ? 'หมด' : 'ใส่ตะกร้า'}</button>
+                      )}
+                     </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* PRODUCT FORM MODAL */}
+            {modal.type === 'product_form' && (
+              <form className="flex flex-col w-full max-h-[92vh] overflow-hidden bg-slate-50" onSubmit={handleProductSubmit}>
+                {/* Header fixed at top */}
+                <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-200 bg-white flex-shrink-0 z-10 shadow-sm">
+                  <h3 className="text-xl font-black text-slate-800">{modal.data ? 'แก้ไขสินค้า / EDIT' : 'เพิ่มสินค้าใหม่ / NEW ITEM'}</h3>
+                  <button type="button" onClick={closeModal} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+                </div>
+                
+                {/* Scrollable Body - Common Scrollbar for entire form */}
+                <div className="flex flex-col md:flex-row flex-1 overflow-y-auto p-5 sm:p-6 gap-6 md:gap-8">
+                  
+                  {/* LEFT COLUMN: Images Gallery */}
+                  <div className="w-full md:w-2/5 flex flex-col flex-shrink-0 gap-3">
+                    <input type="file" id="product-image-upload" accept="image/png, image/jpeg, image/webp" multiple className="hidden" onChange={handleImageChange} disabled={uploadProgress > 0} />
+                    
+                    {/* Main Image 1:1 Dropzone/Preview */}
+                    <label 
+                      htmlFor="product-image-upload"
+                      className={`w-full aspect-square rounded-2xl border-2 flex flex-col items-center justify-center relative cursor-pointer overflow-hidden transition-all duration-300 group bg-white shadow-sm ${isProductImgDragging ? 'border-blue-500 bg-blue-50/50 border-dashed' : 'border-slate-200 hover:border-blue-400'}`}
+                      onDragOver={(e) => { e.preventDefault(); setIsProductImgDragging(true); }}
+                      onDragLeave={() => setIsProductImgDragging(false)}
+                      onDrop={handleProductImageDrop}
+                    >
+                      {uploadProgress > 0 ? (
+                        <div className="flex flex-col items-center w-full max-w-[200px] z-20 px-4">
+                          <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+                          <div className="w-full bg-slate-200 rounded-full h-2 mb-2 overflow-hidden">
+                            <div className="bg-blue-500 h-2 rounded-full transition-all duration-300 ease-out" style={{ width: `${uploadProgress}%` }}></div>
+                          </div>
+                          <p className="text-xs font-bold text-slate-500 tracking-wider">กำลังอัปโหลด... {uploadProgress}%</p>
+                        </div>
+                      ) : previewUrls.length > 0 ? (
+                        <>
+                          <img src={previewUrls[0]} alt="Main Preview" className="w-full h-full object-cover z-10 group-hover:scale-105 transition-transform duration-500" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                             <span className="text-white font-bold text-sm bg-black/60 px-4 py-2 rounded-xl backdrop-blur-md flex items-center gap-2 shadow-lg">
+                               <Plus className="w-4 h-4"/> เพิ่ม/เปลี่ยนรูป
+                             </span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className={`flex flex-col items-center z-10 text-center transition-transform ${isProductImgDragging ? 'scale-110' : ''}`}>
+                          <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-all duration-300 ${isProductImgDragging ? 'bg-blue-100 text-blue-600 shadow-md' : 'bg-slate-50 shadow-sm group-hover:scale-110 text-blue-500'}`}>
+                            <Plus className="w-8 h-8" />
+                          </div>
+                          <p className={`text-sm font-bold transition-colors ${isProductImgDragging ? 'text-blue-600' : 'text-slate-600'}`}>
+                            {isProductImgDragging ? 'ปล่อยรูปภาพที่นี่' : 'คลิกเพื่อเพิ่มรูปภาพหลัก'}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-1">รองรับอัปโหลดหลายรูปพร้อมกัน</p>
+                        </div>
+                      )}
+                    </label>
+
+                    {/* Thumbnails Row */}
+                    <div className="flex gap-2.5 overflow-x-auto hide-scrollbar snap-x pb-1 w-full" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                      {previewUrls.map((url, idx) => (
+                        <div key={idx} className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 relative rounded-xl border border-slate-200 overflow-hidden group shadow-sm bg-white snap-start">
+                          <img src={url} alt={`preview-${idx}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                             <button type="button" onClick={(e) => { e.preventDefault(); removePreviewImage(idx); }} className="p-1.5 bg-rose-500 text-white rounded-lg hover:bg-rose-600 shadow-sm"><Trash2 className="w-3.5 h-3.5"/></button>
+                          </div>
+                          {idx === 0 && <span className="absolute bottom-1 left-1 bg-blue-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-sm">รูปหลัก</span>}
+                        </div>
+                      ))}
+                      {/* Empty Box for Adding More */}
+                      <label htmlFor="product-image-upload" className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-colors bg-white snap-start group shadow-sm">
+                        <Plus className="w-6 h-6 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* RIGHT COLUMN: Form Details */}
+                  <div className="w-full md:w-3/5 flex flex-col space-y-4 md:pr-2">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1">ชื่อสินค้า (Item Name)</label>
-                      <input name="name" type="text" defaultValue={modal.data?.name} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:border-blue-500 outline-none" />
+                      <input name="name" type="text" defaultValue={modal.data?.name} required className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none shadow-sm transition-all" />
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1">ราคา (THB)</label><input name="price" type="number" min="0" defaultValue={modal.data?.price} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-blue-700 font-bold outline-none" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1">โควต้ารวม (Stock)</label><input name="stock" type="number" min="0" defaultValue={modal.data?.stock} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1">ค่าหิ้ว (Fee)</label><input name="carryingFee" type="number" min="0" defaultValue={modal.data?.carryingFee || 0} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1">ค่าจัดส่ง (Ship)</label><input name="shippingFee" type="number" min="0" defaultValue={modal.data?.shippingFee || 0} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1">ราคา (THB)</label><input name="price" type="number" min="0" defaultValue={modal.data?.price} required className="w-full p-3.5 bg-white border border-slate-200 rounded-xl text-blue-700 font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none shadow-sm transition-all" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1">โควต้ารวม (Stock)</label><input name="stock" type="number" min="0" defaultValue={modal.data?.stock} required className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none shadow-sm transition-all" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1">ค่าหิ้ว (Fee)</label><input name="carryingFee" type="number" min="0" defaultValue={modal.data?.carryingFee || 0} required className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-bold focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none shadow-sm transition-all" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1">ค่าจัดส่ง (Ship)</label><input name="shippingFee" type="number" min="0" defaultValue={modal.data?.shippingFee || 0} required className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none shadow-sm transition-all" /></div>
                     </div>
                     
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                      <div className="flex justify-between items-center mb-3">
-                        <span className="text-xs font-bold text-slate-500">ตัวเลือกย่อย (Variations)</span>
-                        <button type="button" onClick={handleAddFormVariation} className="text-blue-600 text-xs font-bold flex items-center gap-1"><Plus className="w-3 h-3"/> เพิ่ม</button>
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5"><Tags className="w-4 h-4 text-blue-500"/> ตัวเลือกย่อย (Variations)</span>
+                        <button type="button" onClick={handleAddFormVariation} className="text-blue-600 text-xs font-bold flex items-center gap-1 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"><Plus className="w-3 h-3"/> เพิ่มตัวเลือก</button>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-2.5">
                         {formVariations.map((v, idx) => (
-                          <div key={idx} className="flex gap-2">
-                            <input type="text" value={v.name} onChange={(e) => handleChangeFormVariation(idx, 'name', e.target.value)} placeholder="เช่น XS, สีดำ" required className="w-1/2 p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" />
-                            <input type="number" value={v.stock} onChange={(e) => handleChangeFormVariation(idx, 'stock', e.target.value)} placeholder="สต๊อก" required className="w-1/3 p-2 bg-white border border-slate-200 rounded-lg text-sm outline-none" />
-                            <button type="button" onClick={() => handleRemoveFormVariation(idx)} className="text-rose-400 p-2"><Trash2 className="w-4 h-4"/></button>
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input type="text" value={v.name} onChange={(e) => handleChangeFormVariation(idx, 'name', e.target.value)} placeholder="เช่น XS, สีดำ" required className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors" />
+                            <input type="number" value={v.stock} onChange={(e) => handleChangeFormVariation(idx, 'stock', e.target.value)} placeholder="สต๊อก" required className="w-24 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors" />
+                            <button type="button" onClick={() => handleRemoveFormVariation(idx)} className="text-rose-400 p-2.5 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
                           </div>
                         ))}
+                        {formVariations.length === 0 && <div className="text-xs text-slate-400 italic mt-2 bg-slate-50 p-3 rounded-lg border border-dashed border-slate-200 text-center">ไม่มีตัวเลือกย่อย (สามารถเพิ่มได้ถ้าสินค้ามีหลายขนาด/สี)</div>}
                       </div>
                     </div>
-                    <div><label className="block text-xs font-bold text-slate-500 mb-1">รายละเอียด (Description)</label><textarea name="description" rows={3} defaultValue={modal.data?.description} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none resize-none"></textarea></div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">รายละเอียด (Description)</label>
+                      <textarea 
+                        name="description" 
+                        defaultValue={modal.data?.description} 
+                        className="w-full p-4 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none resize-none overflow-hidden shadow-sm leading-relaxed transition-all min-h-[150px]"
+                        onInput={(e) => {
+                          const target = e.target as HTMLTextAreaElement;
+                          target.style.height = 'auto'; // รีเซ็ตความสูงก่อน
+                          target.style.height = `${target.scrollHeight}px`; // ขยายตามเนื้อหา
+                        }}
+                        ref={(el) => {
+                          if (el) {
+                            setTimeout(() => {
+                              el.style.height = 'auto';
+                              el.style.height = `${el.scrollHeight}px`;
+                            }, 0);
+                          }
+                        }}
+                      ></textarea>
+                    </div>
                   </div>
-                  
-                  <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
-                    <button type="button" onClick={closeModal} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold shadow-sm text-slate-600">ยกเลิก</button>
-                    <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all">บันทึกข้อมูล</button>
-                  </div>
+
+                </div>
+                
+                {/* Footer fixed at bottom */}
+                <div className="p-4 sm:p-5 border-t border-slate-200 bg-white flex justify-end gap-3 flex-shrink-0 z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
+                  <button type="button" onClick={closeModal} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-700 transition-colors">ยกเลิก</button>
+                  <button type="submit" className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex items-center gap-2"><Save className="w-4 h-4"/> บันทึกข้อมูล</button>
                 </div>
               </form>
             )}
@@ -3944,182 +4200,6 @@ function App() {
                 <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
                   <button type="button" onClick={() => openModal('cart')} className="px-5 py-2.5 bg-white border rounded-xl font-bold">ย้อนกลับ</button>
                   <button type="submit" className="px-5 py-2.5 bg-sky-500 text-white rounded-xl font-bold">ยืนยันสั่งซื้อ</button>
-                </div>
-              </form>
-            )}
-
-            {/* STORE FOR ORDER MODAL */}
-            {modal.type === 'store_for_order' && (
-              <div className="flex flex-col h-full bg-slate-50">
-                <div className="flex justify-between items-center p-5 border-b border-slate-200 bg-white">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => openModal('edit_order')} className="p-2 bg-slate-100 rounded-full"><ArrowLeft className="w-5 h-5"/></button>
-                    <h3 className="text-xl font-black text-slate-800">เลือกสินค้าลงออเดอร์</h3>
-                  </div>
-                  <button onClick={closeModal} className="p-2 text-slate-400"><X className="w-6 h-6"/></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-5">
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
-                    {products.map((product) => {
-                      const isSoldOut = product.status === 'sold_out' || product.stock <= 0;
-                      return (
-                      <div key={product.id} onClick={() => { if (!isSoldOut) openModal('product_details_for_order', product) }}
-                        className={`bg-white rounded-2xl p-4 border transition-all relative overflow-hidden ${isSoldOut ? 'opacity-50 grayscale' : 'cursor-pointer hover:border-blue-400'}`}>
-                        {isSoldOut && (
-                           <div className="absolute top-5 -right-10 w-[140px] bg-rose-500/95 backdrop-blur-sm text-white text-[10px] font-black tracking-widest py-1 text-center rotate-45 z-50 uppercase shadow-md pointer-events-none">SOLD OUT</div>
-                        )}
-                        <div className="aspect-square bg-slate-50 rounded-xl mb-3 flex items-center justify-center overflow-hidden relative">
-                          {product.imageUrl ? (
-                            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-xl cursor-zoom-in hover:scale-105 transition-transform" onClick={(e) => { e.stopPropagation(); setZoomedImage(product.imageUrl); }} onError={(e) => {e.currentTarget.style.display='none'; if(e.currentTarget.nextSibling) (e.currentTarget.nextSibling as HTMLElement).style.display='block';}}/>
-                          ) : null}
-                          <ImageIcon className={`w-10 h-10 z-10 ${product.imageUrl ? 'hidden' : 'block'} text-slate-300`} strokeWidth={1.5} />
-                        </div>
-                        <h3 className="text-sm font-bold text-slate-800 line-clamp-2">{product.name}</h3>
-                        <div className="mt-2 flex justify-between items-end">
-                          <span className="text-blue-600 font-black">฿{product.price.toLocaleString()}</span>
-                          <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded">เหลือ {product.stock}</span>
-                        </div>
-                      </div>
-                    )})}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* PRODUCT DETAILS (Shared) */}
-            {(modal.type === 'product_details' || modal.type === 'product_details_for_order') && (
-              <div className="flex flex-col md:flex-row w-full h-full flex-1 min-h-0 bg-slate-50">
-                <div className="w-full md:w-2/5 h-56 sm:h-64 md:h-full flex-shrink-0 bg-slate-100 flex items-center justify-center p-6 sm:p-8 border-b md:border-r border-slate-200 relative overflow-hidden">
-                   <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-400 via-transparent to-transparent bg-[length:4px_4px]"></div>
-                   {modal.data?.imageUrl ? (
-                     <img src={modal.data.imageUrl} alt={modal.data.name} className="w-full h-full object-contain z-10 cursor-zoom-in hover:scale-105 transition-transform duration-500 drop-shadow-xl" onClick={() => setZoomedImage(modal.data.imageUrl)} />
-                   ) : <ImageIcon className="w-24 h-24 sm:w-32 sm:h-32 text-slate-300 z-10 drop-shadow-md" />}
-                   <button type="button" onClick={closeModal} className="md:hidden absolute top-4 right-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md z-20 hover:bg-white transition-colors"><X className="w-5 h-5 text-slate-700"/></button>
-                </div>
-                
-                <div className="w-full md:w-3/5 flex flex-col flex-1 min-h-0 bg-slate-50">
-                  <div className="p-4 sm:p-6 flex-shrink-0 bg-white rounded-b-[2rem] shadow-sm">
-                    <div className="flex justify-between items-start gap-4">
-                      <h3 className="text-xl sm:text-2xl font-black text-slate-800 leading-snug">{modal.data?.name}</h3>
-                      <button type="button" onClick={closeModal} className="hidden md:flex p-1.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors flex-shrink-0"><X className="w-5 h-5"/></button>
-                    </div>
-                    <div className="flex flex-wrap items-end gap-3 mt-2 sm:mt-3">
-                      <p className="text-3xl sm:text-4xl font-black text-blue-600 tracking-tight drop-shadow-sm">฿{Number(modal.data?.price || 0).toLocaleString()}</p>
-                      <span className="text-xs sm:text-sm font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 shadow-sm mb-1 sm:mb-1.5">สต๊อกรวม {modal.data?.stock} ชิ้น</span>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2 mt-4">
-                      <span className={`text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-lg border flex items-center gap-1.5 shadow-sm transition-colors ${Number(modal.data?.carryingFee) > 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><ShoppingBag className="w-4 h-4"/> ค่าหิ้ว: ฿{Number(modal.data?.carryingFee || 0).toLocaleString()}</span>
-                      <span className={`text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-lg border flex items-center gap-1.5 shadow-sm transition-colors ${Number(modal.data?.shippingFee) > 0 ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><Truck className="w-4 h-4"/> ค่าจัดส่ง: ฿{Number(modal.data?.shippingFee || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-6 sm:space-y-8">
-                    {modal.data?.variations?.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Tags className="w-5 h-5 text-blue-500 drop-shadow-sm"/>
-                          <h4 className="text-base font-black text-slate-800">ตัวเลือกสินค้า</h4>
-                          {modal.type === 'product_details' && selectedVariation && (
-                            <span className="ml-auto text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md animate-in fade-in">เลือกลาย: {selectedVariation}</span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
-                          {modal.data.variations.map((v: Variation) => {
-                            const isSelected = selectedVariation === v.name;
-                            const isOutOfStock = v.stock <= 0 && activeTab === 'store';
-                            return (
-                              <button key={v.name} onClick={() => setSelectedVariation(v.name)} disabled={isOutOfStock}
-                                className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 font-bold transition-all duration-200 overflow-hidden min-h-[4.5rem] group
-                                  ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-md ring-4 ring-blue-500/10 scale-[1.02]' : 'border-slate-200 bg-white text-slate-600 shadow-sm hover:border-blue-300 hover:bg-blue-50/50'}
-                                  ${isOutOfStock ? 'opacity-50 cursor-not-allowed grayscale' : 'active:scale-95'}
-                                `}>
-                                {isSelected && (
-                                  <div className="absolute top-0 right-0 w-0 h-0 border-t-[28px] border-r-[28px] border-t-blue-500 border-r-transparent animate-in zoom-in">
-                                    <Check className="absolute -top-[25px] right-[4px] w-3.5 h-3.5 text-white stroke-[3]"/>
-                                  </div>
-                                )}
-                                <span className="text-[13px] sm:text-sm z-10 leading-snug text-center px-1 mb-1">{v.name}</span>
-                                <span className={`text-[10px] sm:text-[11px] z-10 font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200')}`}>
-                                  {isOutOfStock ? 'สินค้าหมด' : `เหลือ ${v.stock}`}
-                                </span>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <AlignLeft className="w-5 h-5 text-slate-400"/>
-                        <h4 className="text-base font-black text-slate-800">รายละเอียดเพิ่มเติม</h4>
-                      </div>
-                      <div className="text-sm text-slate-600 whitespace-pre-wrap bg-white border border-slate-200 shadow-sm p-5 rounded-2xl leading-relaxed">
-                        {modal.data?.description || <span className="text-slate-400 italic">ไม่มีรายละเอียดสินค้าระบุไว้</span>}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 sm:p-6 border-t border-slate-200 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.02)] z-10">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-5 gap-3 sm:gap-0 bg-slate-50 border border-slate-100 px-4 py-3.5 sm:py-4 rounded-2xl">
-                       <div className="flex flex-col sm:flex-row sm:gap-6 gap-2.5 text-[13px] font-bold">
-                         <span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-emerald-500"/> ค่าหิ้ว: <span className="text-emerald-700">฿{Number(modal.data?.carryingFee || 0).toLocaleString()}</span></span>
-                         <span className="flex items-center gap-2"><Truck className="w-4 h-4 text-orange-500"/> ค่าจัดส่ง: <span className="text-orange-700">฿{Number(modal.data?.shippingFee || 0).toLocaleString()}</span></span>
-                       </div>
-                       <div className="text-left sm:text-right flex justify-between sm:block items-end border-t border-slate-200/60 sm:border-0 pt-3 sm:pt-0 mt-2 sm:mt-0">
-                         <span className="block text-[11px] text-slate-500 uppercase tracking-widest font-black mb-0.5">ราคารวมต่อชิ้น</span>
-                         <span className="text-2xl sm:text-3xl text-blue-600 font-black tracking-tight drop-shadow-sm">฿{(Number(modal.data?.price || 0) + Number(modal.data?.carryingFee || 0) + Number(modal.data?.shippingFee || 0)).toLocaleString()}</span>
-                       </div>
-                    </div>
-
-                    {modal.type === 'product_details_for_order' ? (
-                      <button onClick={() => {
-                        if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้า', 'warning'); return; }
-                        addProductToDraftOrder(modal.data, selectedVariation);
-                      }} className="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-3.5 sm:py-4 rounded-xl font-bold shadow-[0_4px_15px_rgba(147,51,234,0.3)] transition-all flex justify-center items-center gap-2 text-base"><Plus className="w-6 h-6" /> ยืนยันเพิ่มลงคำสั่งซื้อ</button>
-                    ) : activeTab === 'products' ? (
-                      <button onClick={() => openModal('product_form', modal.data)} className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-3.5 sm:py-4 rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-2 text-base"><Edit className="w-5 h-5" /> แก้ไขข้อมูลสินค้า</button>
-                    ) : (
-                      <button onClick={() => {
-                        if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้าก่อน', 'warning'); return; }
-                        addToCart(modal.data, selectedVariation); closeModal();
-                      }} disabled={modal.data?.status === 'sold_out' || modal.data?.stock <= 0}
-                      className="w-full bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 active:scale-[0.98] disabled:active:scale-100 text-white py-3.5 sm:py-4 rounded-xl font-bold shadow-[0_4px_15px_rgba(14,165,233,0.3)] disabled:shadow-none transition-all flex justify-center items-center gap-2 text-base"><ShoppingCart className="w-5 h-5" /> {modal.data?.status === 'sold_out' || modal.data?.stock <= 0 ? 'สินค้าหมด' : 'หยิบใส่ตะกร้า'}</button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* USER FORM MODAL */}
-            {modal.type === 'user_form' && (
-              <form className="flex flex-col h-full max-h-[90vh]" onSubmit={handleSaveUser}>
-                <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50 flex-shrink-0">
-                  <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Users className="w-6 h-6 text-amber-500" /> {modal.data ? 'ข้อมูลและการจัดการสิทธิ์' : 'เพิ่มผู้ใช้ใหม่'}</h3>
-                  <button type="button" onClick={closeModal} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
-                </div>
-                <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 bg-white">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">Username (ใช้เข้าระบบ)</label><input name="username" defaultValue={modal.data?.username} required disabled={!!modal.data} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" /></div>
-                    <div>
-                       <label className="text-xs font-bold text-slate-600 mb-1 block">สิทธิ์การใช้งาน (Role)</label>
-                       <select name="role" defaultValue={modal.data?.role || 'user'} disabled={modal.data?.id === currentUser.id} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none disabled:opacity-60 disabled:cursor-not-allowed">
-                         <option value="user">User (ลูกค้าทั่วไป)</option>
-                         <option value="staff">Staff (เจ้าหน้าที่)</option>
-                         <option value="admin">Admin (ผู้ดูแลระบบ)</option>
-                       </select>
-                    </div>
-                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">ชื่อ-นามสกุล</label><input name="name" defaultValue={modal.data?.name} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none" /></div>
-                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">อีเมล</label><input name="email" type="email" defaultValue={modal.data?.email} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none" /></div>
-                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">เบอร์โทรศัพท์</label><input name="phone" defaultValue={modal.data?.phone} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none" /></div>
-                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">Facebook</label><input name="facebook" defaultValue={modal.data?.facebook} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none" /></div>
-                  </div>
-                  <div><label className="text-xs font-bold text-slate-600 mb-1 block">ที่อยู่จัดส่ง (เริ่มต้น)</label><textarea name="address" rows={3} defaultValue={modal.data?.address} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none resize-none"></textarea></div>
-                </div>
-                <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
-                  <button type="button" onClick={closeModal} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold shadow-sm text-slate-600">ยกเลิก</button>
-                  <button type="submit" className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(245,158,11,0.3)] transition-all flex items-center gap-2"><Save className="w-4 h-4"/> บันทึกข้อมูลผู้ใช้</button>
                 </div>
               </form>
             )}
