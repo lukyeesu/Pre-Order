@@ -625,6 +625,7 @@ function App() {
     setCurrentUser(null);
     setLoginUsername('');
     setLoginPassword('');
+    localStorage.removeItem('savedUserId'); // เคลียร์ข้อมูลการจำเข้าระบบ
     handleTabSwitch('store');
     setIsUserMenuOpen(false);
   };
@@ -785,7 +786,7 @@ function App() {
 
   // Analytics Computation
   const validOrders = filteredDashOrders.filter(o => !['failed', 'refunded'].includes(o.status));
-  const totalRevenue = validOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalRevenue = validOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
   
   let totalProductRevenue = 0;
   let totalCarryingFee = 0;
@@ -801,16 +802,16 @@ function App() {
   validOrders.forEach(o => {
     totalShippingFee += Number(o.shippingFee || 0);
     o.items.forEach(item => {
-      totalProductRevenue += (item.price * item.qty);
-      totalCarryingFee += ((item.carryingFee || 0) * item.qty);
+      totalProductRevenue += (Number(item.price) * Number(item.qty));
+      totalCarryingFee += ((Number(item.carryingFee) || 0) * Number(item.qty));
       if (!productSales[item.id]) productSales[item.id] = { name: item.name, qty: 0, revenue: 0 };
-      productSales[item.id].qty += item.qty;
-      productSales[item.id].revenue += (item.price * item.qty);
+      productSales[item.id].qty += Number(item.qty);
+      productSales[item.id].revenue += (Number(item.price) * Number(item.qty));
     });
   });
 
   filteredDashOrders.forEach(o => {
-    totalActualExpenses += (o.actualExpenses || []).reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+    totalActualExpenses += (o.actualExpenses || []).reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
   });
 
   const totalBaseOrders = baseDashOrders.length;
@@ -2496,7 +2497,7 @@ function App() {
                 </TableScrollWrapper>
               </div>
 
-              <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white p-4 sm:p-6 shadow-sm mb-6 flex flex-col h-auto md:max-h-[700px] md:overflow-hidden">
+              <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white p-4 sm:p-6 shadow-sm mb-6 flex flex-col h-auto">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-4 mb-4 flex-shrink-0">
                   <h3 className="font-bold text-slate-800 flex items-center gap-2"><ClipboardList className="w-5 h-5 text-purple-500"/> รายการคำสั่งซื้อ</h3>
                   <span className="text-[11px] sm:text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200 shadow-sm">พบ {filteredDashOrders.length} รายการ</span>
@@ -2583,8 +2584,8 @@ function App() {
                   )}
                 </div>
 
-                {/* Desktop View (With internal scroll) */}
-                <TableScrollWrapper className="hidden md:block overflow-x-auto overflow-y-auto flex-1 rounded-xl w-full" onScroll={handleDashOrdersScroll}>
+                {/* Desktop View (No vertical internal scroll) */}
+                <TableScrollWrapper className="hidden md:block overflow-x-auto flex-1 rounded-xl w-full">
                   <table className="w-full min-w-[1100px] xl:min-w-[1250px] text-left border-collapse relative">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-slate-50/95 backdrop-blur-sm text-slate-500 text-[12px] uppercase tracking-wider font-bold shadow-[0_4px_10px_rgba(0,0,0,0.02)]">
