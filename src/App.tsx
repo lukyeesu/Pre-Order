@@ -2105,7 +2105,7 @@ function App() {
         }
       }}>
         <div className="w-full min-h-full flex flex-col">
-          <div className="max-w-[1600px] mx-auto pb-28 md:pb-10 min-h-full flex flex-col w-full">
+          <div className="pb-28 md:pb-10 min-h-full flex flex-col w-full">
             
           {/* DASHBOARD TAB */}
           {activeTab === 'dashboard' && (
