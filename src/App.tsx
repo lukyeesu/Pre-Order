@@ -2580,11 +2580,18 @@ function App() {
                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">ยอดรวมสุทธิ</span>
                              <span className="text-lg font-black text-purple-600">฿{order.total.toLocaleString()}</span>
                            </div>
+                           <div className={`grid gap-2 pt-3 mt-2 border-t border-slate-100/60 ${isAdminOrStaff ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                             <button onClick={(e) => handleShareOrder(e, order)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors w-full shadow-sm"><Share2 className="w-3.5 h-3.5"/> แชร์</button>
+                             <button onClick={(e) => { e.stopPropagation(); openEditOrderModal(order); }} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors w-full shadow-sm"><Edit className="w-3.5 h-3.5"/> แก้ไข</button>
+                             {isAdminOrStaff && (
+                                <button onClick={(e) => { e.stopPropagation(); openModal('delete_order_confirm', order); }} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors w-full shadow-sm"><Trash2 className="w-3.5 h-3.5"/> ลบ</button>
+                             )}
+                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                  {filteredDashOrders.length === 0 && (
+                    </div>
+                  )
+                })}
+                {filteredDashOrders.length === 0 && (
                      <div className="text-center py-12 text-slate-400 bg-white rounded-3xl border border-slate-200 border-dashed">
                        <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-3" />
                        <p className="font-medium text-sm">ไม่พบคำสั่งซื้อ</p>
@@ -2970,11 +2977,11 @@ function App() {
                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">ยอดรวมสุทธิ</span>
                              <span className="text-lg font-black text-purple-600">฿{order.total.toLocaleString()}</span>
                            </div>
-                           <div className="flex justify-end gap-2 pt-3 mt-1 border-t border-slate-100/60">
-                             <button onClick={(e) => handleShareOrder(e, order)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"><Share2 className="w-3.5 h-3.5"/> แชร์</button>
-                             <button onClick={(e) => { e.stopPropagation(); openEditOrderModal(order); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"><Edit className="w-3.5 h-3.5"/> แก้ไข</button>
+                           <div className={`grid gap-2 pt-3 mt-2 border-t border-slate-100/60 ${isAdminOrStaff ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                             <button onClick={(e) => handleShareOrder(e, order)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors w-full shadow-sm"><Share2 className="w-3.5 h-3.5"/> แชร์</button>
+                             <button onClick={(e) => { e.stopPropagation(); openEditOrderModal(order); }} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors w-full shadow-sm"><Edit className="w-3.5 h-3.5"/> แก้ไข</button>
                              {isAdminOrStaff && (
-                                <button onClick={(e) => { e.stopPropagation(); openModal('delete_order_confirm', order); }} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5"/> ลบ</button>
+                                <button onClick={(e) => { e.stopPropagation(); openModal('delete_order_confirm', order); }} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors w-full shadow-sm"><Trash2 className="w-3.5 h-3.5"/> ลบ</button>
                              )}
                            </div>
                         </div>
@@ -3375,14 +3382,17 @@ function App() {
                             <p className="text-xs text-slate-500 mb-0.5 font-bold uppercase tracking-widest">ยอดรวมสุทธิ</p>
                             <p className="text-xl font-black text-pink-600">฿{order.total.toLocaleString()}</p>
                           </div>
-                          {order.status === 'waiting_payment' && (
-                            <button 
-                              onClick={() => handleCancelOrder(order.id)}
-                              className="mt-2 text-xs font-bold text-rose-500 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg border border-rose-100 transition-colors w-full sm:w-auto"
-                            >
-                              ยกเลิกคำสั่งซื้อ
-                            </button>
-                          )}
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); openModal('cancel_order_confirm', order); }}
+                            disabled={!['waiting_payment', 'paid'].includes(order.status)}
+                            className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors w-full sm:w-auto ${
+                              ['waiting_payment', 'paid'].includes(order.status)
+                                ? 'text-rose-500 bg-rose-50 hover:bg-rose-100 border-rose-100'
+                                : 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed opacity-70'
+                            }`}
+                          >
+                            ยกเลิกคำสั่งซื้อ
+                          </button>
                         </div>
                       </div>
                       
@@ -3525,7 +3535,7 @@ function App() {
              ))}
           </datalist>
           <div className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform transition-all duration-300 ease-out ${isModalVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.95] opacity-0 translate-y-8'}
-              ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[90vh] md:h-[550px]' : 
+              ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[92vh] md:max-h-[85vh] md:min-h-[500px]' : 
                 (modal.type === 'store_for_order' ? 'max-w-4xl max-h-[85vh] md:h-[600px]' :
                 (modal.type === 'edit_order' ? 'max-w-4xl max-h-[90vh]' :
                 (modal.type === 'cart' ? 'max-w-xl max-h-[90vh]' : 
@@ -3731,9 +3741,22 @@ function App() {
                 <div className="p-4 sm:p-5 border-t border-slate-200 bg-white flex justify-between items-center gap-3 flex-shrink-0">
                   {isAdminOrStaff ? (
                     <button type="button" onClick={() => openModal('delete_order_confirm', draftOrder)} className="px-4 py-2.5 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl font-bold transition-colors flex items-center gap-2"><Trash2 className="w-5 h-5 hidden sm:block"/> <span className="text-sm">ลบออเดอร์</span></button>
-                  ) : <div></div>}
+                  ) : (
+                    <button 
+                      type="button" 
+                      onClick={() => openModal('cancel_order_confirm', draftOrder)} 
+                      disabled={!['waiting_payment', 'paid'].includes(draftOrder.status)}
+                      className={`px-4 py-2.5 rounded-xl font-bold transition-colors flex items-center gap-2 ${
+                        ['waiting_payment', 'paid'].includes(draftOrder.status)
+                          ? 'text-rose-500 bg-rose-50 hover:bg-rose-100'
+                          : 'text-slate-400 bg-slate-100 cursor-not-allowed opacity-70'
+                      }`}
+                    >
+                      <X className="w-5 h-5 hidden sm:block"/> <span className="text-sm">ยกเลิกคำสั่งซื้อ</span>
+                    </button>
+                  )}
                   <div className="flex gap-2 sm:gap-3">
-                    <button type="button" onClick={(e) => handleShareOrder(e, draftOrder as Order)} className="px-4 sm:px-6 py-2.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl font-bold transition-colors flex items-center gap-2 text-sm sm:text-base"><Share2 className="w-4 h-4 sm:w-5 sm:h-5"/> <span className="hidden sm:inline">แชร์</span></button>
+                    {isAdminOrStaff && <button type="button" onClick={(e) => handleShareOrder(e, draftOrder as Order)} className="px-4 sm:px-6 py-2.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl font-bold transition-colors flex items-center gap-2 text-sm sm:text-base"><Share2 className="w-4 h-4 sm:w-5 sm:h-5"/> <span className="hidden sm:inline">แชร์</span></button>}
                     <button type="button" onClick={closeModal} className="px-4 sm:px-6 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold transition-colors text-sm sm:text-base">{isAdminOrStaff ? 'ยกเลิก' : 'ปิดหน้านี้'}</button>
                     {isAdminOrStaff && <button type="button" onClick={saveEditedOrder} className="px-4 sm:px-8 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold tracking-wide shadow-[0_4px_15px_rgba(147,51,234,0.3)] flex items-center gap-2 transition-all text-sm sm:text-base"><Save className="w-4 h-4 sm:w-5 sm:h-5"/> บันทึก</button>}
                   </div>
@@ -3743,9 +3766,9 @@ function App() {
 
             {/* PRODUCT FORM MODAL */}
             {modal.type === 'product_form' && (
-              <form className="flex flex-col md:flex-row h-full max-h-[90vh]" onSubmit={handleProductSubmit}>
+              <form className="flex flex-col md:flex-row w-full h-full flex-1 min-h-0" onSubmit={handleProductSubmit}>
                 <label 
-                  className={`md:w-2/5 h-48 md:h-full flex-shrink-0 flex flex-col items-center justify-center p-8 border-b md:border-r relative cursor-pointer transition-all duration-300 group overflow-hidden ${isProductImgDragging ? 'bg-blue-50 border-blue-400 border-dashed border-2' : 'bg-slate-50 border-slate-100 hover:bg-slate-100/80'}`}
+                  className={`w-full md:w-2/5 h-48 md:h-full flex-shrink-0 flex flex-col items-center justify-center p-8 border-b md:border-r relative cursor-pointer transition-all duration-300 group overflow-hidden ${isProductImgDragging ? 'bg-blue-50 border-blue-400 border-dashed border-2' : 'bg-slate-50 border-slate-100 hover:bg-slate-100/80'}`}
                   onDragOver={(e) => { e.preventDefault(); setIsProductImgDragging(true); }}
                   onDragLeave={() => setIsProductImgDragging(false)}
                   onDrop={handleProductImageDrop}
@@ -3784,13 +3807,13 @@ function App() {
                   <button type="button" onClick={(e) => { e.preventDefault(); closeModal(); }} className="md:hidden absolute top-4 right-4 bg-white p-2 rounded-full shadow-sm z-30"><X className="w-5 h-5"/></button>
                 </label>
 
-                <div className="md:w-3/5 flex flex-col h-full bg-white overflow-hidden">
+                <div className="w-full md:w-3/5 flex flex-col flex-1 min-h-0 bg-white">
                   <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
                     <h3 className="text-xl font-black text-slate-800">{modal.data ? 'แก้ไขสินค้า / EDIT' : 'เพิ่มสินค้าใหม่ / NEW ITEM'}</h3>
                     <button type="button" onClick={closeModal} className="hidden md:block p-1 text-slate-400"><X className="w-6 h-6"/></button>
                   </div>
                   
-                  <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
+                  <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1">ชื่อสินค้า (Item Name)</label>
                       <input name="name" type="text" defaultValue={modal.data?.name} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-medium focus:border-blue-500 outline-none" />
@@ -3965,15 +3988,15 @@ function App() {
 
             {/* PRODUCT DETAILS (Shared) */}
             {(modal.type === 'product_details' || modal.type === 'product_details_for_order') && (
-              <div className="flex flex-col md:flex-row h-full">
-                <div className="md:w-2/5 h-48 md:h-full flex-shrink-0 bg-slate-50 flex items-center justify-center p-8 border-b md:border-r border-slate-100 relative">
+              <div className="flex flex-col md:flex-row w-full h-full flex-1 min-h-0">
+                <div className="w-full md:w-2/5 h-48 md:h-full flex-shrink-0 bg-slate-50 flex items-center justify-center p-8 border-b md:border-r border-slate-100 relative">
                    {modal.data?.imageUrl ? (
                      <img src={modal.data.imageUrl} alt={modal.data.name} className="w-full h-full object-contain z-10 cursor-zoom-in hover:scale-105 transition-transform" onClick={() => setZoomedImage(modal.data.imageUrl)} />
                    ) : <ImageIcon className="w-32 h-32 text-slate-300 z-10" />}
                    <button type="button" onClick={closeModal} className="md:hidden absolute top-4 right-4 bg-white p-2 rounded-full shadow-sm z-20"><X className="w-5 h-5"/></button>
                 </div>
                 
-                <div className="md:w-3/5 flex flex-col h-full bg-white">
+                <div className="w-full md:w-3/5 flex flex-col flex-1 min-h-0 bg-white">
                   <div className="p-6 flex-shrink-0">
                     <div className="flex justify-between items-start">
                       <h3 className="text-2xl font-black text-slate-800">{modal.data?.name}</h3>
@@ -3990,7 +4013,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="px-6 pb-6 overflow-y-auto flex-1">
+                  <div className="px-6 pb-6 overflow-y-auto flex-1 min-h-0">
                     {modal.data?.variations?.length > 0 && (
                       <div className="mb-6">
                         <p className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Tags className="w-4 h-4"/> ตัวเลือกสินค้า</p>
