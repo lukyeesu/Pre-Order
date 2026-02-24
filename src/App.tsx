@@ -376,7 +376,19 @@ function App() {
             setProducts(sanitizedProducts);
           }
           if (json.data.orders && json.data.orders.length > 0) setOrders(json.data.orders);
-          if (json.data.users && json.data.users.length > 0) setUsersList(json.data.users);
+          if (json.data.users && json.data.users.length > 0) {
+            setUsersList(json.data.users);
+            
+            // โหลดข้อมูลผู้ใช้ที่บันทึกไว้ใน localStorage (ฟีเจอร์ "ให้อยู่ในระบบต่อ")
+            const savedUserId = localStorage.getItem('savedUserId');
+            if (savedUserId) {
+              const savedUser = json.data.users.find((u: any) => u.id === savedUserId);
+              if (savedUser) {
+                setCurrentUser(savedUser);
+                setActiveTab(savedUser.role === 'user' ? 'store' : 'dashboard');
+              }
+            }
+          }
           if (json.data.settings && json.data.settings.length > 0) {
             const fetchedSettings = json.data.settings[0];
             setSysSettings(prev => ({ ...prev, ...fetchedSettings }));
@@ -565,6 +577,14 @@ function App() {
     }
 
     setCurrentUser(user);
+    
+    // บันทึกหรือลบข้อมูลการเข้าระบบตามที่ผู้ใช้เลือก "ให้อยู่ในระบบต่อ"
+    if (rememberMe) {
+      localStorage.setItem('savedUserId', user.id);
+    } else {
+      localStorage.removeItem('savedUserId');
+    }
+
     handleTabSwitch(user.role === 'user' ? 'store' : 'dashboard');
     showToast(`ยินดีต้อนรับ ${user.name} (${user.role})`);
     setIsProcessing(false); setIsLoading(false);
