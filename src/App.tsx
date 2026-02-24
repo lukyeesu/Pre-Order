@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ShoppingBag, ClipboardList, Settings, Plus, Edit, Trash2, X, Check, 
-  AlertCircle, PackageX, Rocket, Sparkles, Store, ShoppingCart, 
+  AlertCircle, PackageX, Sparkles, Store, ShoppingCart, 
   Image as ImageIcon, Box, CreditCard, Minus, MapPin, Calendar, 
   Phone, User, Truck, AlignLeft, Tags, GripHorizontal, ArrowLeft, 
   Receipt, Banknote, PenTool, Save, Tag, Landmark, Search, 
-  Download, PieChart, TrendingUp, AlertTriangle, CheckCircle, Clock, Folder, Activity, Award, Filter,
+  Download, PieChart, TrendingUp, AlertTriangle, CheckCircle, Folder, Activity, Award, Filter,
   Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2
 } from 'lucide-react';
 
@@ -263,7 +263,7 @@ function App() {
   const [isProfileImgDragging, setIsProfileImgDragging] = useState<boolean>(false);
   
   // Image Zoom State
-  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [, setZoomedImage] = useState<string | null>(null);
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
