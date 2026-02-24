@@ -4204,6 +4204,38 @@ function App() {
               </form>
             )}
 
+            {/* USER FORM MODAL */}
+            {modal.type === 'user_form' && (
+              <form className="flex flex-col h-full max-h-[90vh]" onSubmit={handleSaveUser}>
+                <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50 flex-shrink-0">
+                  <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Users className="w-6 h-6 text-amber-500" /> {modal.data ? 'ข้อมูลและการจัดการสิทธิ์' : 'เพิ่มผู้ใช้ใหม่'}</h3>
+                  <button type="button" onClick={closeModal} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
+                </div>
+                <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 bg-white">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">Username (ใช้เข้าระบบ)</label><input name="username" defaultValue={modal.data?.username} required disabled={!!modal.data} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" /></div>
+                    <div>
+                       <label className="text-xs font-bold text-slate-600 mb-1 block">สิทธิ์การใช้งาน (Role)</label>
+                       <select name="role" defaultValue={modal.data?.role || 'user'} disabled={modal.data?.id === currentUser.id} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none disabled:opacity-60 disabled:cursor-not-allowed">
+                         <option value="user">User (ลูกค้าทั่วไป)</option>
+                         <option value="staff">Staff (เจ้าหน้าที่)</option>
+                         <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                       </select>
+                    </div>
+                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">ชื่อ-นามสกุล</label><input name="name" defaultValue={modal.data?.name} required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none" /></div>
+                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">อีเมล</label><input name="email" type="email" defaultValue={modal.data?.email} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none" /></div>
+                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">เบอร์โทรศัพท์</label><input name="phone" defaultValue={modal.data?.phone} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none" /></div>
+                    <div><label className="text-xs font-bold text-slate-600 mb-1 block">Facebook</label><input name="facebook" defaultValue={modal.data?.facebook} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none" /></div>
+                  </div>
+                  <div><label className="text-xs font-bold text-slate-600 mb-1 block">ที่อยู่จัดส่ง (เริ่มต้น)</label><textarea name="address" rows={3} defaultValue={modal.data?.address} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-amber-400 focus:ring-2 focus:ring-amber-500/10 outline-none resize-none"></textarea></div>
+                </div>
+                <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
+                  <button type="button" onClick={closeModal} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl font-bold shadow-sm text-slate-600">ยกเลิก</button>
+                  <button type="submit" className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(245,158,11,0.3)] transition-all flex items-center gap-2"><Save className="w-4 h-4"/> บันทึกข้อมูลผู้ใช้</button>
+                </div>
+              </form>
+            )}
+
             {/* DELETE USER CONFIRM MODAL */}
             {modal.type === 'delete_user_confirm' && (
               <div className="p-8 text-center bg-white rounded-3xl">
