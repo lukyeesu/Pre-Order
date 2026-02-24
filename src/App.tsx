@@ -827,15 +827,6 @@ function App() {
     totalShippingFee, totalActualExpenses, topProducts, statusCounts
   };
 
-  const handleDashOrdersScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollHeight - scrollTop <= clientHeight + 50) {
-      if (dashVisibleOrdersCount < filteredDashOrders.length) {
-         setDashVisibleOrdersCount(prev => prev + 5);
-      }
-    }
-  };
-
   const handleDeleteUser = async (id: string) => {
     if (isProcessing) return;
     setIsProcessing(true); setIsLoading(true);
