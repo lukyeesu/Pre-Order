@@ -10,4 +10,5 @@ export default defineConfig({
       },
     }),
   ],
+  base: '/Pre-Order/', // แก้เป็นชื่อ Repo ของคุณ
 })
