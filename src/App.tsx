@@ -3988,63 +3988,88 @@ function App() {
 
             {/* PRODUCT DETAILS (Shared) */}
             {(modal.type === 'product_details' || modal.type === 'product_details_for_order') && (
-              <div className="flex flex-col md:flex-row w-full h-full flex-1 min-h-0">
-                <div className="w-full md:w-2/5 h-48 md:h-full flex-shrink-0 bg-slate-50 flex items-center justify-center p-8 border-b md:border-r border-slate-100 relative">
+              <div className="flex flex-col md:flex-row w-full h-full flex-1 min-h-0 bg-slate-50">
+                <div className="w-full md:w-2/5 h-56 sm:h-64 md:h-full flex-shrink-0 bg-slate-100 flex items-center justify-center p-6 sm:p-8 border-b md:border-r border-slate-200 relative overflow-hidden">
+                   <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-400 via-transparent to-transparent bg-[length:4px_4px]"></div>
                    {modal.data?.imageUrl ? (
-                     <img src={modal.data.imageUrl} alt={modal.data.name} className="w-full h-full object-contain z-10 cursor-zoom-in hover:scale-105 transition-transform" onClick={() => setZoomedImage(modal.data.imageUrl)} />
-                   ) : <ImageIcon className="w-32 h-32 text-slate-300 z-10" />}
-                   <button type="button" onClick={closeModal} className="md:hidden absolute top-4 right-4 bg-white p-2 rounded-full shadow-sm z-20"><X className="w-5 h-5"/></button>
+                     <img src={modal.data.imageUrl} alt={modal.data.name} className="w-full h-full object-contain z-10 cursor-zoom-in hover:scale-105 transition-transform duration-500 drop-shadow-xl" onClick={() => setZoomedImage(modal.data.imageUrl)} />
+                   ) : <ImageIcon className="w-24 h-24 sm:w-32 sm:h-32 text-slate-300 z-10 drop-shadow-md" />}
+                   <button type="button" onClick={closeModal} className="md:hidden absolute top-4 right-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md z-20 hover:bg-white transition-colors"><X className="w-5 h-5 text-slate-700"/></button>
                 </div>
                 
-                <div className="w-full md:w-3/5 flex flex-col flex-1 min-h-0 bg-white">
-                  <div className="p-6 flex-shrink-0">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-2xl font-black text-slate-800">{modal.data?.name}</h3>
-                      <button type="button" onClick={closeModal} className="hidden md:block p-1 text-slate-400"><X className="w-6 h-6"/></button>
+                <div className="w-full md:w-3/5 flex flex-col flex-1 min-h-0 bg-slate-50">
+                  <div className="p-4 sm:p-6 flex-shrink-0 bg-white rounded-b-[2rem] shadow-sm">
+                    <div className="flex justify-between items-start gap-4">
+                      <h3 className="text-xl sm:text-2xl font-black text-slate-800 leading-snug">{modal.data?.name}</h3>
+                      <button type="button" onClick={closeModal} className="hidden md:flex p-1.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors flex-shrink-0"><X className="w-5 h-5"/></button>
                     </div>
-                    <div className="flex items-end gap-3 mt-2">
-                      <p className="text-3xl font-extrabold text-blue-600">฿{modal.data?.price.toLocaleString()}</p>
-                      <span className="text-sm font-black text-rose-600 bg-rose-50 px-3 py-1 rounded-lg">เหลือ {modal.data?.stock} ชิ้น</span>
+                    <div className="flex flex-wrap items-end gap-3 mt-2 sm:mt-3">
+                      <p className="text-3xl sm:text-4xl font-black text-blue-600 tracking-tight drop-shadow-sm">฿{Number(modal.data?.price || 0).toLocaleString()}</p>
+                      <span className="text-xs sm:text-sm font-black text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 shadow-sm mb-1 sm:mb-1.5">สต๊อกรวม {modal.data?.stock} ชิ้น</span>
                     </div>
                     
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-md border flex items-center gap-1 ${modal.data?.carryingFee > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><ShoppingBag className="w-3.5 h-3.5"/> ค่าหิ้ว: ฿{modal.data?.carryingFee?.toLocaleString() || 0}</span>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-md border flex items-center gap-1 ${modal.data?.shippingFee > 0 ? 'text-orange-600 bg-orange-50 border-orange-100' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><Truck className="w-3.5 h-3.5"/> ค่าจัดส่ง: ฿{modal.data?.shippingFee?.toLocaleString() || 0}</span>
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      <span className={`text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-lg border flex items-center gap-1.5 shadow-sm transition-colors ${Number(modal.data?.carryingFee) > 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><ShoppingBag className="w-4 h-4"/> ค่าหิ้ว: ฿{Number(modal.data?.carryingFee || 0).toLocaleString()}</span>
+                      <span className={`text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-lg border flex items-center gap-1.5 shadow-sm transition-colors ${Number(modal.data?.shippingFee) > 0 ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><Truck className="w-4 h-4"/> ค่าจัดส่ง: ฿{Number(modal.data?.shippingFee || 0).toLocaleString()}</span>
                     </div>
                   </div>
 
-                  <div className="px-6 pb-6 overflow-y-auto flex-1 min-h-0">
+                  <div className="p-4 sm:p-6 overflow-y-auto flex-1 min-h-0 space-y-6 sm:space-y-8">
                     {modal.data?.variations?.length > 0 && (
-                      <div className="mb-6">
-                        <p className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2"><Tags className="w-4 h-4"/> ตัวเลือกสินค้า</p>
-                        <div className="flex flex-wrap gap-2">
-                          {modal.data.variations.map((v: Variation) => (
-                            <button key={v.name} onClick={() => setSelectedVariation(v.name)} disabled={v.stock <= 0 && activeTab === 'store'}
-                              className={`px-4 py-2 rounded-xl border-2 font-bold text-sm transition-all flex flex-col items-center gap-0.5
-                                ${selectedVariation === v.name ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-100'}
-                                ${v.stock <= 0 && activeTab === 'store' ? 'opacity-50 cursor-not-allowed' : 'hover:border-slate-300'}
-                              `}>
-                              <span>{v.name}</span><span className="text-[10px] text-slate-400">{v.stock <= 0 ? 'หมด' : `เหลือ ${v.stock}`}</span>
-                            </button>
-                          ))}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Tags className="w-5 h-5 text-blue-500 drop-shadow-sm"/>
+                          <h4 className="text-base font-black text-slate-800">ตัวเลือกสินค้า</h4>
+                          {modal.type === 'product_details' && selectedVariation && (
+                            <span className="ml-auto text-xs font-bold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md animate-in fade-in">เลือกลาย: {selectedVariation}</span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
+                          {modal.data.variations.map((v: Variation) => {
+                            const isSelected = selectedVariation === v.name;
+                            const isOutOfStock = v.stock <= 0 && activeTab === 'store';
+                            return (
+                              <button key={v.name} onClick={() => setSelectedVariation(v.name)} disabled={isOutOfStock}
+                                className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 font-bold transition-all duration-200 overflow-hidden min-h-[4.5rem] group
+                                  ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-md ring-4 ring-blue-500/10 scale-[1.02]' : 'border-slate-200 bg-white text-slate-600 shadow-sm hover:border-blue-300 hover:bg-blue-50/50'}
+                                  ${isOutOfStock ? 'opacity-50 cursor-not-allowed grayscale' : 'active:scale-95'}
+                                `}>
+                                {isSelected && (
+                                  <div className="absolute top-0 right-0 w-0 h-0 border-t-[28px] border-r-[28px] border-t-blue-500 border-r-transparent animate-in zoom-in">
+                                    <Check className="absolute -top-[25px] right-[4px] w-3.5 h-3.5 text-white stroke-[3]"/>
+                                  </div>
+                                )}
+                                <span className="text-[13px] sm:text-sm z-10 leading-snug text-center px-1 mb-1">{v.name}</span>
+                                <span className={`text-[10px] sm:text-[11px] z-10 font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200')}`}>
+                                  {isOutOfStock ? 'สินค้าหมด' : `เหลือ ${v.stock}`}
+                                </span>
+                              </button>
+                            )
+                          })}
                         </div>
                       </div>
                     )}
+                    
                     <div>
-                      <p className="text-sm font-bold text-slate-800 mb-2 flex items-center gap-2"><AlignLeft className="w-4 h-4"/> รายละเอียด</p>
-                      <div className="text-sm text-slate-600 whitespace-pre-wrap bg-slate-50 p-4 rounded-xl">{modal.data?.description || '-'}</div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlignLeft className="w-5 h-5 text-slate-400"/>
+                        <h4 className="text-base font-black text-slate-800">รายละเอียดเพิ่มเติม</h4>
+                      </div>
+                      <div className="text-sm text-slate-600 whitespace-pre-wrap bg-white border border-slate-200 shadow-sm p-5 rounded-2xl leading-relaxed">
+                        {modal.data?.description || <span className="text-slate-400 italic">ไม่มีรายละเอียดสินค้าระบุไว้</span>}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="p-6 border-t border-slate-100 bg-white">
-                    <div className="flex justify-between items-center mb-4 text-sm font-bold text-slate-600 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
-                       <div className="flex flex-col sm:flex-row sm:gap-4 gap-1">
-                         <span className="flex items-center gap-1.5"><ShoppingBag className="w-4 h-4 text-emerald-500"/> ค่าหิ้ว: <span className="text-emerald-600">฿{modal.data?.carryingFee?.toLocaleString() || 0}</span></span>
-                         <span className="flex items-center gap-1.5"><Truck className="w-4 h-4 text-orange-500"/> ค่าจัดส่ง: <span className="text-orange-600">฿{modal.data?.shippingFee?.toLocaleString() || 0}</span></span>
+                  <div className="p-4 sm:p-6 border-t border-slate-200 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.02)] z-10">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-5 gap-3 sm:gap-0 bg-slate-50 border border-slate-100 px-4 py-3.5 sm:py-4 rounded-2xl">
+                       <div className="flex flex-col sm:flex-row sm:gap-6 gap-2.5 text-[13px] font-bold">
+                         <span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-emerald-500"/> ค่าหิ้ว: <span className="text-emerald-700">฿{Number(modal.data?.carryingFee || 0).toLocaleString()}</span></span>
+                         <span className="flex items-center gap-2"><Truck className="w-4 h-4 text-orange-500"/> ค่าจัดส่ง: <span className="text-orange-700">฿{Number(modal.data?.shippingFee || 0).toLocaleString()}</span></span>
                        </div>
-                       <div className="text-right">
-                         <span className="block text-[10px] text-slate-400 uppercase">รวมต่อชิ้น</span>
-                         <span className="text-lg text-blue-600 font-black">฿{((modal.data?.price || 0) + (modal.data?.carryingFee || 0) + (modal.data?.shippingFee || 0)).toLocaleString()}</span>
+                       <div className="text-left sm:text-right flex justify-between sm:block items-end border-t border-slate-200/60 sm:border-0 pt-3 sm:pt-0 mt-2 sm:mt-0">
+                         <span className="block text-[11px] text-slate-500 uppercase tracking-widest font-black mb-0.5">ราคารวมต่อชิ้น</span>
+                         <span className="text-2xl sm:text-3xl text-blue-600 font-black tracking-tight drop-shadow-sm">฿{(Number(modal.data?.price || 0) + Number(modal.data?.carryingFee || 0) + Number(modal.data?.shippingFee || 0)).toLocaleString()}</span>
                        </div>
                     </div>
 
@@ -4052,15 +4077,15 @@ function App() {
                       <button onClick={() => {
                         if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้า', 'warning'); return; }
                         addProductToDraftOrder(modal.data, selectedVariation);
-                      }} className="w-full bg-purple-600 text-white py-3.5 rounded-xl font-bold flex justify-center gap-2"><Plus className="w-6 h-6" /> ยืนยันเพิ่มลงคำสั่งซื้อ</button>
+                      }} className="w-full bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-3.5 sm:py-4 rounded-xl font-bold shadow-[0_4px_15px_rgba(147,51,234,0.3)] transition-all flex justify-center items-center gap-2 text-base"><Plus className="w-6 h-6" /> ยืนยันเพิ่มลงคำสั่งซื้อ</button>
                     ) : activeTab === 'products' ? (
-                      <button onClick={() => openModal('product_form', modal.data)} className="w-full bg-blue-500 text-white py-3.5 rounded-xl font-bold flex justify-center gap-2"><Edit className="w-6 h-6" /> แก้ไขข้อมูลสินค้า</button>
+                      <button onClick={() => openModal('product_form', modal.data)} className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-3.5 sm:py-4 rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-2 text-base"><Edit className="w-5 h-5" /> แก้ไขข้อมูลสินค้า</button>
                     ) : (
                       <button onClick={() => {
                         if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้าก่อน', 'warning'); return; }
                         addToCart(modal.data, selectedVariation); closeModal();
                       }} disabled={modal.data?.status === 'sold_out' || modal.data?.stock <= 0}
-                      className="w-full bg-sky-500 disabled:bg-slate-200 text-white py-3.5 rounded-xl font-bold flex justify-center gap-2"><ShoppingCart className="w-6 h-6" /> หยิบใส่ตะกร้า</button>
+                      className="w-full bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 active:scale-[0.98] disabled:active:scale-100 text-white py-3.5 sm:py-4 rounded-xl font-bold shadow-[0_4px_15px_rgba(14,165,233,0.3)] disabled:shadow-none transition-all flex justify-center items-center gap-2 text-base"><ShoppingCart className="w-5 h-5" /> {modal.data?.status === 'sold_out' || modal.data?.stock <= 0 ? 'สินค้าหมด' : 'หยิบใส่ตะกร้า'}</button>
                     )}
                   </div>
                 </div>
