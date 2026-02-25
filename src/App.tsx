@@ -374,14 +374,25 @@ function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   
-  // User specific cart states
+  // User specific cart states (Persisted in Google Sheets)
   const [userCarts, setUserCarts] = useState<Record<string, CartItem[]>>({});
+  const syncCartTimeout = useRef<any>(null);
+
   const cart = currentUser ? (userCarts[currentUser.id] || []) : [];
+
   const setCart = (action: React.SetStateAction<CartItem[]>) => {
     if (!currentUser) return;
     setUserCarts(prev => {
       const currentCart = prev[currentUser.id] || [];
       const newCart = typeof action === 'function' ? (action as (prevState: CartItem[]) => CartItem[])(currentCart) : action;
+      
+      // หน่วงเวลาเซฟตะกร้าไปที่ Google Sheet (เพื่อไม่ให้ยิง API ถี่เกินไปเวลากดรัวๆ)
+      if (syncCartTimeout.current) clearTimeout(syncCartTimeout.current);
+      syncCartTimeout.current = setTimeout(() => {
+        callServerAPI('saveCart', { userId: currentUser.id, cartData: JSON.stringify(newCart) })
+          .catch(err => console.error("Cart save error", err));
+      }, 1000);
+
       return { ...prev, [currentUser.id]: newCart };
     });
   };
@@ -542,6 +553,13 @@ function App() {
             if (fetchedSettings.bankOptions) {
                try { setBankOptions(JSON.parse(fetchedSettings.bankOptions)); } catch(e){}
             }
+          }
+          if (json.data.carts && json.data.carts.length > 0) {
+             const loadedCarts: Record<string, CartItem[]> = {};
+             json.data.carts.forEach((c: any) => {
+                try { loadedCarts[c.userId] = JSON.parse(c.cartData); } catch(e){}
+             });
+             setUserCarts(loadedCarts);
           }
         }
       } catch (err) {
