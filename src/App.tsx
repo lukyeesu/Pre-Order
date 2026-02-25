@@ -266,7 +266,7 @@ function App() {
   const [isProfileImgDragging, setIsProfileImgDragging] = useState<boolean>(false);
   
   // Image Zoom State
-  const [, setZoomedImage] = useState<string | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
