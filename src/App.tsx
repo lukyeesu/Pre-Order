@@ -548,16 +548,18 @@ function App() {
             const fetchedSettings = json.data.settings[0];
             setSysSettings(prev => ({ ...prev, ...fetchedSettings }));
             if (fetchedSettings.orderStatuses) {
-               try { setOrderStatuses(JSON.parse(fetchedSettings.orderStatuses)); } catch(e){}
+               try { setOrderStatuses(typeof fetchedSettings.orderStatuses === 'string' ? JSON.parse(fetchedSettings.orderStatuses) : fetchedSettings.orderStatuses); } catch(e){}
             }
             if (fetchedSettings.bankOptions) {
-               try { setBankOptions(JSON.parse(fetchedSettings.bankOptions)); } catch(e){}
+               try { setBankOptions(typeof fetchedSettings.bankOptions === 'string' ? JSON.parse(fetchedSettings.bankOptions) : fetchedSettings.bankOptions); } catch(e){}
             }
           }
           if (json.data.carts && json.data.carts.length > 0) {
              const loadedCarts: Record<string, CartItem[]> = {};
              json.data.carts.forEach((c: any) => {
-                try { loadedCarts[c.userId] = JSON.parse(c.cartData); } catch(e){}
+                try { 
+                  loadedCarts[c.userId] = typeof c.cartData === 'string' ? JSON.parse(c.cartData) : (c.cartData || []); 
+                } catch(e){}
              });
              setUserCarts(loadedCarts);
           }
