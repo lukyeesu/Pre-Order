@@ -134,7 +134,7 @@ export interface SystemSettings {
 // --- CONFIGURATION ---
 // นำ Web App URL ที่ได้จากการ Deploy Apps Script มาวางที่นี่
 // [UPDATED] อัปเดต URL ให้ตรงกับที่คุณให้มาล่าสุด
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxne-fxBjy2PeZi7HCaIWCMyNBArRMBwubJtfcGAf84MKmbytFJfHtJqD_PCaiqwHXJFQ/exec"; 
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzvDxBTMbczdeC5ZQDXkVsEWA-GiSPOef1ZuvKXqNhTnGktE2pDcnKu3mSMfDoIE2o/exec"; 
 // ---------------------
 
 // --- REUSABLE COMPONENTS ---
