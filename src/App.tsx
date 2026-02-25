@@ -323,6 +323,13 @@ const defaultBanks: Bank[] = [
   { id: 'b5', name: 'พร้อมเพย์ (PromptPay)' }
 ];
 
+const formatPhone = (phone?: string) => {
+  if (!phone) return '';
+  const p = String(phone).trim();
+  if (p.startsWith('0') || p.startsWith('+')) return p;
+  return '0' + p;
+};
+
 // --- MAIN COMPONENT ---
 function App() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -2696,9 +2703,9 @@ function App() {
                         <div className="flex flex-col gap-1">
                           <p className="font-bold text-slate-800 text-sm">{order.customer}</p>
                           <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 mt-0.5">
-                            {order.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-300"/> {order.phone}</span>}
+                            {order.phone && <a href={`tel:${formatPhone(order.phone)}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1 hover:text-blue-600 hover:underline"><Phone className="w-3 h-3 text-slate-300"/> {formatPhone(order.phone)}</a>}
                             {order.facebook && <span className="flex items-center gap-1"><User className="w-3 h-3 text-slate-300"/> {order.facebook}</span>}
-                            {order.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-slate-300"/> {order.email}</span>}
+                            {order.email && <a href={`mailto:${order.email}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1 hover:text-blue-600 hover:underline"><Mail className="w-3 h-3 text-slate-300"/> {order.email}</a>}
                           </div>
                         </div>
                         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2 border border-slate-100">
@@ -2717,7 +2724,14 @@ function App() {
                              <span className={`px-2 py-0.5 rounded font-bold w-fit tracking-wide text-[10px] ${order.deliveryMethod === 'pickup' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{order.deliveryMethod === 'pickup' ? 'นัดรับ' : 'จัดส่ง'}</span>
                              {order.deliveryDate && <span className="text-slate-500 font-medium flex items-center gap-1"><Calendar className="w-3 h-3"/> {order.deliveryDate}</span>}
                            </div>
-                           <p className="flex items-start gap-1.5"><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-slate-400 mt-0.5"/> <span className="line-clamp-2">{order.address || '-'}</span></p>
+                           <p className="flex items-start gap-1.5">
+                             <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-slate-400 mt-0.5"/>
+                             {order.googleMapLink ? (
+                               <a href={order.googleMapLink} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="line-clamp-2 text-blue-600 hover:underline font-medium">{order.address || '-'}</a>
+                             ) : (
+                               <span className="line-clamp-2">{order.address || '-'}</span>
+                             )}
+                           </p>
                         </div>
                         <div className="flex flex-col gap-1.5 text-[11px] px-1">
                           <div className="flex gap-2">
@@ -2794,8 +2808,9 @@ function App() {
                           <td className="px-6 py-5 align-top">
                             <p className="font-bold text-slate-800 mb-1.5 text-sm">{order.customer}</p>
                             <div className="flex flex-col gap-1 text-[12px] text-slate-500">
-                              <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-slate-400"/> {order.facebook}</span>
-                              <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400"/> {order.phone}</span>
+                              {order.facebook && <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-slate-400"/> {order.facebook}</span>}
+                              {order.phone && <a href={`tel:${formatPhone(order.phone)}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1.5 hover:text-blue-600 hover:underline"><Phone className="w-3.5 h-3.5 text-slate-400"/> {formatPhone(order.phone)}</a>}
+                              {order.email && <a href={`mailto:${order.email}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1.5 hover:text-blue-600 hover:underline"><Mail className="w-3.5 h-3.5 text-slate-400"/> {order.email}</a>}
                             </div>
                           </td>
                           <td className="px-6 py-5 align-top">
@@ -2822,7 +2837,11 @@ function App() {
                             </div>
                             <div className="text-[12px] text-slate-600 flex items-start gap-1.5 max-w-[200px]">
                               <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-slate-400" />
-                              <span className="line-clamp-2 leading-relaxed">{order.address || '-'}</span>
+                              {order.googleMapLink ? (
+                                <a href={order.googleMapLink} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="line-clamp-2 leading-relaxed text-blue-600 hover:underline font-medium">{order.address || '-'}</a>
+                              ) : (
+                                <span className="line-clamp-2 leading-relaxed">{order.address || '-'}</span>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-5 align-top">
@@ -3083,19 +3102,14 @@ function App() {
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             {getStatusBadge(order.status)}
-                            {getNextStatusInfo(order.status) && (
-                              <button onClick={(e) => handleNextStatus(e, order)} className="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-[10px] font-bold transition-colors border border-emerald-100 shadow-sm">
-                                 ดำเนินการต่อ <ArrowRight className="w-3 h-3"/>
-                              </button>
-                            )}
                           </div>
                         </div>
                         <div className="flex flex-col gap-1">
                           <p className="font-bold text-slate-800 text-sm">{order.customer}</p>
                           <div className="flex flex-wrap gap-2 text-[11px] text-slate-500 mt-0.5">
-                            {order.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-300"/> {order.phone}</span>}
+                            {order.phone && <a href={`tel:${formatPhone(order.phone)}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1 hover:text-blue-600 hover:underline"><Phone className="w-3 h-3 text-slate-300"/> {formatPhone(order.phone)}</a>}
                             {order.facebook && <span className="flex items-center gap-1"><User className="w-3 h-3 text-slate-300"/> {order.facebook}</span>}
-                            {order.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3 text-slate-300"/> {order.email}</span>}
+                            {order.email && <a href={`mailto:${order.email}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1 hover:text-blue-600 hover:underline"><Mail className="w-3 h-3 text-slate-300"/> {order.email}</a>}
                           </div>
                         </div>
                         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2 border border-slate-100">
@@ -3114,7 +3128,14 @@ function App() {
                              <span className={`px-2 py-0.5 rounded font-bold w-fit tracking-wide text-[10px] ${order.deliveryMethod === 'pickup' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{order.deliveryMethod === 'pickup' ? 'นัดรับ' : 'จัดส่ง'}</span>
                              {order.deliveryDate && <span className="text-slate-500 font-medium flex items-center gap-1"><Calendar className="w-3 h-3"/> {order.deliveryDate}</span>}
                            </div>
-                           <p className="flex items-start gap-1.5"><MapPin className="w-3.5 h-3.5 flex-shrink-0 text-slate-400 mt-0.5"/> <span className="line-clamp-2">{order.address || '-'}</span></p>
+                           <p className="flex items-start gap-1.5">
+                             <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-slate-400 mt-0.5"/>
+                             {order.googleMapLink ? (
+                               <a href={order.googleMapLink} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="line-clamp-2 text-blue-600 hover:underline font-medium">{order.address || '-'}</a>
+                             ) : (
+                               <span className="line-clamp-2">{order.address || '-'}</span>
+                             )}
+                           </p>
                         </div>
                         <div className="flex flex-col gap-1.5 text-[11px] px-1">
                           <div className="flex gap-2">
@@ -3167,7 +3188,7 @@ function App() {
                         <th className="px-6 py-5 min-w-[140px]">สรุปยอด (THB)</th>
                         <th className="px-6 py-5 min-w-[140px]">ธนาคาร / บัญชี</th>
                         <th className="px-6 py-5 min-w-[100px] max-w-[140px]">หมายเหตุ</th>
-                        <th className="px-6 py-5 text-center whitespace-nowrap min-w-[120px]">สถานะ</th>
+                        <th className="px-6 py-5 text-center whitespace-nowrap min-w-[160px]">สถานะ</th>
                         <th className="px-6 py-5 pr-8 text-center whitespace-nowrap min-w-[140px]">จัดการ</th>
                       </tr>
                     </thead>
@@ -3185,8 +3206,9 @@ function App() {
                           <td className="px-6 py-5 align-top">
                             <p className="font-bold text-slate-800 mb-1.5 text-sm">{order.customer}</p>
                             <div className="flex flex-col gap-1 text-[12px] text-slate-500">
-                              <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-slate-400"/> {order.facebook}</span>
-                              <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400"/> {order.phone}</span>
+                              {order.facebook && <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-slate-400"/> {order.facebook}</span>}
+                              {order.phone && <a href={`tel:${formatPhone(order.phone)}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1.5 hover:text-blue-600 hover:underline"><Phone className="w-3.5 h-3.5 text-slate-400"/> {formatPhone(order.phone)}</a>}
+                              {order.email && <a href={`mailto:${order.email}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1.5 hover:text-blue-600 hover:underline"><Mail className="w-3.5 h-3.5 text-slate-400"/> {order.email}</a>}
                             </div>
                           </td>
                           <td className="px-6 py-5 align-top">
@@ -3209,7 +3231,11 @@ function App() {
                             </div>
                             <div className="text-[12px] text-slate-600 flex items-start gap-1.5 max-w-[200px]">
                               <MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-slate-400" />
-                              <span className="line-clamp-2 leading-relaxed">{order.address || '-'}</span>
+                              {order.googleMapLink ? (
+                                <a href={order.googleMapLink} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} className="line-clamp-2 leading-relaxed text-blue-600 hover:underline font-medium">{order.address || '-'}</a>
+                              ) : (
+                                <span className="line-clamp-2 leading-relaxed">{order.address || '-'}</span>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-5 align-top">
@@ -3240,15 +3266,8 @@ function App() {
                               <span className="text-[12px] text-slate-300 italic">-</span>
                             )}
                           </td>
-                          <td className="px-6 py-5 align-top text-center">
-                            <div className="flex flex-col items-center gap-2">
-                              {getStatusBadge(order.status)}
-                              {getNextStatusInfo(order.status) && (
-                                 <button onClick={(e) => handleNextStatus(e, order)} className="flex items-center justify-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-[10px] font-bold transition-colors border border-emerald-100 shadow-sm w-full max-w-[110px]" title={`ปรับสถานะเป็น: ${getNextStatusInfo(order.status)?.label}`}>
-                                    ดำเนินการต่อ <ArrowRight className="w-3 h-3"/>
-                                 </button>
-                              )}
-                            </div>
+                          <td className="px-6 py-5 align-top text-center whitespace-nowrap">
+                            {getStatusBadge(order.status)}
                           </td>
                           <td className="px-6 py-5 pr-8 align-top text-center">
                             <div className="flex items-center justify-center gap-1.5">
@@ -3419,8 +3438,8 @@ function App() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 text-[11px] text-slate-600 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                      {user.email && <span className="flex items-center gap-2.5"><Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"/> <span className="truncate">{user.email}</span></span>}
-                      {user.phone && <span className="flex items-center gap-2.5"><Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"/> <span>{user.phone}</span></span>}
+                      {user.email && <a href={`mailto:${user.email}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-2.5 hover:text-blue-600 hover:underline"><Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"/> <span className="truncate">{user.email}</span></a>}
+                      {user.phone && <a href={`tel:${formatPhone(user.phone)}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-2.5 hover:text-blue-600 hover:underline"><Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"/> <span>{formatPhone(user.phone)}</span></a>}
                       {user.facebook && <span className="flex items-center gap-2.5"><User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"/> <span className="truncate">{user.facebook}</span></span>}
                       {!user.email && !user.phone && !user.facebook && <span className="text-slate-400 italic">- ไม่มีข้อมูลติดต่อ -</span>}
                       
@@ -3477,8 +3496,8 @@ function App() {
                           </td>
                           <td className="px-6 py-4 align-top">
                             <div className="flex flex-col gap-1 text-[12px] text-slate-600">
-                              {user.email && <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-slate-400"/> {user.email}</span>}
-                              {user.phone && <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400"/> {user.phone}</span>}
+                              {user.email && <a href={`mailto:${user.email}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1.5 hover:text-blue-600 hover:underline"><Mail className="w-3.5 h-3.5 text-slate-400"/> {user.email}</a>}
+                              {user.phone && <a href={`tel:${formatPhone(user.phone)}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1.5 hover:text-blue-600 hover:underline"><Phone className="w-3.5 h-3.5 text-slate-400"/> {formatPhone(user.phone)}</a>}
                               {user.facebook && <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-slate-400"/> {user.facebook}</span>}
                               {!user.email && !user.phone && !user.facebook && <span className="text-slate-400 italic">- ไม่มีข้อมูล -</span>}
                             </div>
@@ -3703,15 +3722,15 @@ function App() {
             {/* EDIT ORDER MODAL */}
             {modal.type === 'edit_order' && draftOrder && (
               <div className="flex flex-col flex-1 min-h-0 bg-slate-50">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 sm:p-6 border-b border-slate-200 bg-white flex-shrink-0 gap-4">
-                  <div>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 sm:p-6 border-b border-slate-200 bg-white flex-shrink-0 gap-4 relative">
+                  <div className="pr-20 sm:pr-0">
                     <h3 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2"><Receipt className="w-6 h-6 text-purple-600" /> {isAdminOrStaff ? 'จัดการคำสั่งซื้อ' : 'รายละเอียดคำสั่งซื้อ'}</h3>
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-sm font-mono text-slate-500">ID: {draftOrder.id}</p>
                       {draftOrder.createdBy && <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">บันทึกโดย: {draftOrder.createdBy}</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
                     {isAdminOrStaff ? (
                       <select 
                         className={`border border-slate-200 text-sm font-bold rounded-xl block w-full sm:w-56 p-2.5 outline-none shadow-sm cursor-pointer ${getColorClasses(orderStatuses.find(s=>s.id === draftOrder.status)?.color || 'slate')}`}
@@ -3722,7 +3741,12 @@ function App() {
                     ) : (
                       <div className="block w-full sm:w-auto">{getStatusBadge(draftOrder.status)}</div>
                     )}
-                    <button type="button" onClick={closeModal} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full border shadow-sm transition-colors"><X className="w-5 h-5"/></button>
+                  </div>
+                  <div className="absolute top-4 right-4 sm:static flex items-center gap-2">
+                    <button type="button" onClick={(e) => handleShareOrder(e, draftOrder as Order)} className="text-blue-600 hover:text-blue-800 bg-blue-50 p-2 rounded-full border border-blue-100 shadow-sm transition-colors" title="แชร์ออเดอร์">
+                      <Share2 className="w-5 h-5"/>
+                    </button>
+                    <button type="button" onClick={closeModal} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full border border-slate-200 shadow-sm transition-colors"><X className="w-5 h-5"/></button>
                   </div>
                 </div>
                 
