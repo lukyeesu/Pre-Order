@@ -167,6 +167,140 @@ const TableScrollWrapper: React.FC<{ children: React.ReactNode, className?: stri
   );
 };
 
+// --- IMAGE ZOOM COMPONENT ---
+const ImageZoomOverlay: React.FC<{ imageUrl: string, onClose: () => void }> = ({ imageUrl, onClose }) => {
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const isDragging = useRef(false);
+  const startPos = useRef({ x: 0, y: 0 });
+  const lastTouchDistance = useRef<number | null>(null);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+    const delta = e.deltaY < 0 ? 0.15 : -0.15;
+    let newScale = scale + delta;
+    newScale = Math.max(0.5, Math.min(newScale, 6)); // ซูมได้สูงสุด 6 เท่า
+    setScale(newScale);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (scale > 1) {
+      isDragging.current = true;
+      startPos.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging.current && scale > 1) {
+      setPosition({
+        x: e.clientX - startPos.current.x,
+        y: e.clientY - startPos.current.y
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+      lastTouchDistance.current = dist;
+    } else if (e.touches.length === 1 && scale > 1) {
+      isDragging.current = true;
+      startPos.current = { x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+
+      if (lastTouchDistance.current !== null) {
+        const delta = dist - lastTouchDistance.current;
+        let newScale = scale + delta * 0.015;
+        newScale = Math.max(0.5, Math.min(newScale, 6));
+        setScale(newScale);
+      }
+      lastTouchDistance.current = dist;
+    } else if (e.touches.length === 1 && isDragging.current && scale > 1) {
+      setPosition({
+        x: e.touches[0].clientX - startPos.current.x,
+        y: e.touches[0].clientY - startPos.current.y
+      });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDragging.current = false;
+    lastTouchDistance.current = null;
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent | React.TouchEvent) => {
+     e.stopPropagation();
+     if (scale > 1) {
+        setScale(1);
+        setPosition({x:0, y:0});
+     } else {
+        setScale(2);
+     }
+  };
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = originalOverflow; };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[999999] bg-black/95 flex items-center justify-center backdrop-blur-sm animate-in fade-in duration-200 touch-none"
+      onClick={onClose}
+      onWheel={handleWheel}
+    >
+      <button
+        className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors z-50 shadow-lg"
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        title="ปิด (Close)"
+      >
+        <X className="w-6 h-6" />
+      </button>
+
+      <div
+        className="w-full h-full flex items-center justify-center overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onDoubleClick={handleDoubleClick}
+        style={{ cursor: scale > 1 ? (isDragging.current ? 'grabbing' : 'grab') : 'zoom-in' }}
+      >
+        <img
+          src={imageUrl}
+          alt="Zoomed Fullscreen"
+          className="max-w-full max-h-full object-contain select-none pointer-events-none drop-shadow-2xl"
+          style={{
+            transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+            transition: isDragging.current ? 'none' : 'transform 0.1s ease-out',
+            willChange: 'transform'
+          }}
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+};
+
 // --- INITIAL DATA ---
 const defaultOrderStatuses: OrderStatus[] = [
   { id: 'waiting_payment', label: 'รอชำระเงิน', color: 'amber' },
@@ -3780,7 +3914,6 @@ function App() {
                     </button>
                   )}
                   <div className="flex gap-2 sm:gap-3">
-                    {isAdminOrStaff && <button type="button" onClick={(e) => handleShareOrder(e, draftOrder as Order)} className="px-4 sm:px-6 py-2.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl font-bold transition-colors flex items-center gap-2 text-sm sm:text-base"><Share2 className="w-4 h-4 sm:w-5 sm:h-5"/> <span className="hidden sm:inline">แชร์</span></button>}
                     <button type="button" onClick={closeModal} className="px-4 sm:px-6 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold transition-colors text-sm sm:text-base">{isAdminOrStaff ? 'ยกเลิก' : 'ปิดหน้านี้'}</button>
                     {isAdminOrStaff && <button type="button" onClick={saveEditedOrder} className="px-4 sm:px-8 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold tracking-wide shadow-[0_4px_15px_rgba(147,51,234,0.3)] flex items-center gap-2 transition-all text-sm sm:text-base"><Save className="w-4 h-4 sm:w-5 sm:h-5"/> บันทึก</button>}
                   </div>
@@ -4281,37 +4414,7 @@ function App() {
 
       {/* --- IMAGE ZOOM FULLSCREEN OVERLAY --- */}
       {zoomedImage && (
-        <div 
-          className="fixed inset-0 z-[999999] bg-black/95 flex items-center justify-center backdrop-blur-sm animate-in fade-in duration-200"
-          onClick={() => setZoomedImage(null)}
-        >
-          <button 
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors z-50 shadow-lg"
-            onClick={() => setZoomedImage(null)}
-            title="ปิด (Close)"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          
-          <div className="w-full h-full p-4 sm:p-8 flex items-center justify-center overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <img 
-              src={zoomedImage} 
-              alt="Zoomed Fullscreen" 
-              className="max-w-full max-h-full object-contain cursor-zoom-in transition-transform duration-300 ease-out drop-shadow-2xl"
-              onClick={(e) => {
-                e.stopPropagation();
-                const target = e.currentTarget;
-                if (target.style.transform === 'scale(2)') {
-                  target.style.transform = 'scale(1)';
-                  target.style.cursor = 'zoom-in';
-                } else {
-                  target.style.transform = 'scale(2)';
-                  target.style.cursor = 'zoom-out';
-                }
-              }}
-            />
-          </div>
-        </div>
+        <ImageZoomOverlay imageUrl={zoomedImage} onClose={() => setZoomedImage(null)} />
       )}
     </div>
   );
