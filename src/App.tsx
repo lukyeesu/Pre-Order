@@ -4278,6 +4278,41 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* --- IMAGE ZOOM FULLSCREEN OVERLAY --- */}
+      {zoomedImage && (
+        <div 
+          className="fixed inset-0 z-[999999] bg-black/95 flex items-center justify-center backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setZoomedImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-colors z-50 shadow-lg"
+            onClick={() => setZoomedImage(null)}
+            title="ปิด (Close)"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <div className="w-full h-full p-4 sm:p-8 flex items-center justify-center overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={zoomedImage} 
+              alt="Zoomed Fullscreen" 
+              className="max-w-full max-h-full object-contain cursor-zoom-in transition-transform duration-300 ease-out drop-shadow-2xl"
+              onClick={(e) => {
+                e.stopPropagation();
+                const target = e.currentTarget;
+                if (target.style.transform === 'scale(2)') {
+                  target.style.transform = 'scale(1)';
+                  target.style.cursor = 'zoom-in';
+                } else {
+                  target.style.transform = 'scale(2)';
+                  target.style.cursor = 'zoom-out';
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
