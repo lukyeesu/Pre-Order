@@ -2711,15 +2711,31 @@ function App() {
                           </div>
                         </div>
                         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2 border border-slate-100">
-                           {order.items.map((item, i) => (
-                             <div key={i} className="flex flex-col gap-1 border-b border-slate-200/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
-                               <div className="flex justify-between gap-2">
-                                 <span className="text-slate-700 font-medium flex-1">{item.qty}x {item.name} {item.variation ? <span className="text-[10px] text-slate-500 ml-1">({item.variation})</span> : ''}</span>
-                                 <span className="font-bold text-slate-600 whitespace-nowrap">฿{(item.price * item.qty).toLocaleString()}</span>
+                           {order.items.map((item, i) => {
+                             const product = products.find(p => p.id === item.id);
+                             const itemImageUrl = product?.imageUrl;
+                             return (
+                             <div key={i} className="flex flex-col gap-2 border-b border-slate-200/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
+                               <div className="flex justify-between gap-3">
+                                 <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                    <div className="w-10 h-10 rounded bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center cursor-zoom-in" onClick={(e) => { if(itemImageUrl){ e.stopPropagation(); setZoomedImage(itemImageUrl); } }}>
+                                      {itemImageUrl ? <img src={itemImageUrl} alt={item.name} className="w-full h-full object-cover hover:opacity-80 transition-opacity" /> : <ImageIcon className="w-5 h-5 text-slate-300"/>}
+                                    </div>
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                      <span className="text-slate-700 font-medium line-clamp-2 leading-tight">{item.name}</span>
+                                      <div className="flex flex-wrap gap-1.5 mt-1">
+                                         <span className="text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">จำนวน: {item.qty}</span>
+                                         {item.variation && <span className="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">ตัวเลือก: {item.variation}</span>}
+                                      </div>
+                                    </div>
+                                 </div>
+                                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                   <span className="font-bold text-slate-600 whitespace-nowrap">฿{(item.price * item.qty).toLocaleString()}</span>
+                                   {item.carryingFee > 0 && <span className="text-[10px] text-emerald-600">หิ้ว +฿{(item.carryingFee * item.qty).toLocaleString()}</span>}
+                                 </div>
                                </div>
-                               {item.carryingFee > 0 && <div className="text-[10px] text-emerald-600 text-right">ค่าหิ้ว +฿{(item.carryingFee * item.qty).toLocaleString()}</div>}
                              </div>
-                           ))}
+                           )})}
                         </div>
                         <div className="text-[11px] text-slate-600 bg-orange-50/50 p-2.5 rounded-lg border border-orange-100/50">
                            <div className="flex items-center gap-2 mb-1.5">
@@ -2817,15 +2833,23 @@ function App() {
                           </td>
                           <td className="px-6 py-5 align-top">
                             <div className="space-y-3">
-                              {order.items.map((item, i) => (
-                                <div key={i} className="flex justify-between items-start gap-4 text-[13px] border-b border-slate-50 pb-2.5 last:border-0 last:pb-0">
-                                  <div className="flex flex-col gap-1">
-                                    <span className="font-medium text-slate-700 line-clamp-2 leading-relaxed">{item.name}</span>
-                                    {item.variation && <span className="text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded w-fit">ตัวเลือก: {item.variation}</span>}
+                              {order.items.map((item, i) => {
+                                const product = products.find(p => p.id === item.id);
+                                const itemImageUrl = product?.imageUrl;
+                                return (
+                                <div key={i} className="flex justify-between items-start gap-3 text-[13px] border-b border-slate-50 pb-2.5 last:border-0 last:pb-0">
+                                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                                     <div className="w-10 h-10 rounded bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center cursor-zoom-in" onClick={(e) => { if(itemImageUrl){ e.stopPropagation(); setZoomedImage(itemImageUrl); } }}>
+                                       {itemImageUrl ? <img src={itemImageUrl} alt={item.name} className="w-full h-full object-cover hover:opacity-80 transition-opacity" /> : <ImageIcon className="w-5 h-5 text-slate-300"/>}
+                                     </div>
+                                     <div className="flex flex-col gap-1 min-w-0">
+                                       <span className="font-medium text-slate-700 line-clamp-2 leading-relaxed">{item.name}</span>
+                                       {item.variation && <span className="text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded w-fit">ตัวเลือก: {item.variation}</span>}
+                                     </div>
                                   </div>
-                                  <span className="font-mono text-slate-600 font-bold bg-slate-50 px-2 py-1 rounded whitespace-nowrap">x{item.qty}</span>
+                                  <span className="font-mono text-slate-600 font-bold bg-slate-50 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">x{item.qty}</span>
                                 </div>
-                              ))}
+                              )})}
                             </div>
                           </td>
                           <td className="px-6 py-5 align-top">
@@ -3115,15 +3139,31 @@ function App() {
                           </div>
                         </div>
                         <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-2 border border-slate-100">
-                           {order.items.map((item, i) => (
-                             <div key={i} className="flex flex-col gap-1 border-b border-slate-200/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
-                               <div className="flex justify-between gap-2">
-                                 <span className="text-slate-700 font-medium flex-1">{item.qty}x {item.name} {item.variation ? <span className="text-[10px] text-slate-500 ml-1">({item.variation})</span> : ''}</span>
-                                 <span className="font-bold text-slate-600 whitespace-nowrap">฿{(item.price * item.qty).toLocaleString()}</span>
+                           {order.items.map((item, i) => {
+                             const product = products.find(p => p.id === item.id);
+                             const itemImageUrl = product?.imageUrl;
+                             return (
+                             <div key={i} className="flex flex-col gap-2 border-b border-slate-200/50 pb-2 mb-2 last:border-0 last:pb-0 last:mb-0">
+                               <div className="flex justify-between gap-3">
+                                 <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                    <div className="w-10 h-10 rounded bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center cursor-zoom-in" onClick={(e) => { if(itemImageUrl){ e.stopPropagation(); setZoomedImage(itemImageUrl); } }}>
+                                      {itemImageUrl ? <img src={itemImageUrl} alt={item.name} className="w-full h-full object-cover hover:opacity-80 transition-opacity" /> : <ImageIcon className="w-5 h-5 text-slate-300"/>}
+                                    </div>
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                      <span className="text-slate-700 font-medium line-clamp-2 leading-tight">{item.name}</span>
+                                      <div className="flex flex-wrap gap-1.5 mt-1">
+                                         <span className="text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">จำนวน: {item.qty}</span>
+                                         {item.variation && <span className="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">ตัวเลือก: {item.variation}</span>}
+                                      </div>
+                                    </div>
+                                 </div>
+                                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                   <span className="font-bold text-slate-600 whitespace-nowrap">฿{(item.price * item.qty).toLocaleString()}</span>
+                                   {item.carryingFee > 0 && <span className="text-[10px] text-emerald-600">หิ้ว +฿{(item.carryingFee * item.qty).toLocaleString()}</span>}
+                                 </div>
                                </div>
-                               {item.carryingFee > 0 && <div className="text-[10px] text-emerald-600 text-right">ค่าหิ้ว +฿{(item.carryingFee * item.qty).toLocaleString()}</div>}
                              </div>
-                           ))}
+                           )})}
                         </div>
                         <div className="text-[11px] text-slate-600 bg-orange-50/50 p-2.5 rounded-lg border border-orange-100/50">
                            <div className="flex items-center gap-2 mb-1.5">
@@ -3215,15 +3255,23 @@ function App() {
                           </td>
                           <td className="px-6 py-5 align-top">
                             <div className="space-y-3">
-                              {order.items.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-start gap-4 text-[13px] border-b border-slate-50 pb-2.5 last:border-0 last:pb-0">
-                                  <div className="flex flex-col gap-1">
-                                    <span className="font-medium text-slate-700 line-clamp-2 leading-relaxed">{item.name}</span>
-                                    {item.variation && <span className="text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded w-fit">ตัวเลือก: {item.variation}</span>}
+                              {order.items.map((item, idx) => {
+                                const product = products.find(p => p.id === item.id);
+                                const itemImageUrl = product?.imageUrl;
+                                return (
+                                <div key={idx} className="flex justify-between items-start gap-3 text-[13px] border-b border-slate-50 pb-2.5 last:border-0 last:pb-0">
+                                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                                     <div className="w-10 h-10 rounded bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center cursor-zoom-in" onClick={(e) => { if(itemImageUrl){ e.stopPropagation(); setZoomedImage(itemImageUrl); } }}>
+                                       {itemImageUrl ? <img src={itemImageUrl} alt={item.name} className="w-full h-full object-cover hover:opacity-80 transition-opacity" /> : <ImageIcon className="w-5 h-5 text-slate-300"/>}
+                                     </div>
+                                     <div className="flex flex-col gap-1 min-w-0">
+                                       <span className="font-medium text-slate-700 line-clamp-2 leading-relaxed">{item.name}</span>
+                                       {item.variation && <span className="text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded w-fit">ตัวเลือก: {item.variation}</span>}
+                                     </div>
                                   </div>
-                                  <span className="font-mono text-slate-600 font-bold bg-slate-50 px-2 py-1 rounded whitespace-nowrap">x{item.qty}</span>
+                                  <span className="font-mono text-slate-600 font-bold bg-slate-50 px-2 py-1 rounded whitespace-nowrap flex-shrink-0">x{item.qty}</span>
                                 </div>
-                              ))}
+                              )})}
                             </div>
                           </td>
                           <td className="px-6 py-5 align-top">
@@ -3594,21 +3642,29 @@ function App() {
                       </div>
                       
                       <div className="space-y-3">
-                        {order.items.map((item, idx) => (
+                        {order.items.map((item, idx) => {
+                          const product = products.find(p => p.id === item.id);
+                          const itemImageUrl = product?.imageUrl;
+                          return (
                           <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 text-sm bg-white p-4 rounded-xl border border-slate-100">
-                            <div>
-                              <span className="font-bold text-slate-700 block mb-1">{item.name}</span>
-                              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
-                                <span className="text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded border border-slate-100">จำนวน: {item.qty} ชิ้น</span>
-                                {item.variation && <span className="text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded border border-slate-100">ตัวเลือก: {item.variation}</span>}
+                            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-50 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-200 overflow-hidden cursor-zoom-in" onClick={(e) => { if(itemImageUrl){ e.stopPropagation(); setZoomedImage(itemImageUrl); } }}>
+                                {itemImageUrl ? <img src={itemImageUrl} alt={item.name} className="w-full h-full object-cover hover:opacity-80 transition-opacity" /> : <ImageIcon className="w-6 h-6 text-slate-300"/>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-bold text-slate-700 block mb-1 truncate">{item.name}</span>
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+                                  <span className="text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded border border-slate-100">จำนวน: {item.qty} ชิ้น</span>
+                                  {item.variation && <span className="text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded border border-slate-100">ตัวเลือก: {item.variation}</span>}
+                                </div>
                               </div>
                             </div>
-                            <div className="text-left sm:text-right flex flex-col gap-1 items-start sm:items-end">
+                            <div className="text-left sm:text-right flex flex-col gap-1 items-start sm:items-end flex-shrink-0 pl-14 sm:pl-0">
                               <span className="font-bold text-slate-800 text-base">฿{(item.price * item.qty).toLocaleString()}</span>
                               {item.carryingFee > 0 && <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">ค่าหิ้ว +฿{(item.carryingFee * item.qty).toLocaleString()}</span>}
                             </div>
                           </div>
-                        ))}
+                        )})}
                       </div>
                       
                       {Number(order.shippingFee) > 0 && (
