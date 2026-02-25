@@ -559,25 +559,36 @@ function App() {
   const handleTabSwitch = (newTab: string) => {
     // บันทึกตำแหน่ง Scroll ปัจจุบันก่อนเปลี่ยนหน้า
     if (mainScrollRef.current) {
-      scrollPositions.current[activeTab] = mainScrollRef.current.scrollTop;
+      // ดึงค่า Scroll จาก Lenis ถ้ามี (จะได้ค่าที่แม่นยำกว่าระหว่างกำลัง Animation)
+      const currentScroll = lenisRef.current ? lenisRef.current.scroll : mainScrollRef.current.scrollTop;
+      scrollPositions.current[activeTab] = currentScroll;
     }
     setActiveTab(newTab);
   };
 
   useEffect(() => {
     // คืนค่าตำแหน่ง Scroll เมื่อเปลี่ยนหน้า
-    if (mainScrollRef.current) {
-      requestAnimationFrame(() => {
-        if (mainScrollRef.current) {
-          const targetScroll = scrollPositions.current[activeTab] || 0;
-          mainScrollRef.current.scrollTop = targetScroll;
-          if (lenisRef.current) {
-            // สั่ง Lenis ให้เปลี่ยนจุด Scroll ตามที่เราจำไว้ทันที
-            lenisRef.current.scrollTo(targetScroll, { immediate: true });
-          }
+    const targetScroll = scrollPositions.current[activeTab] || 0;
+    
+    const restoreScrollPosition = () => {
+      if (mainScrollRef.current) {
+        // หากความสูงรวมของคอนเทนต์ยังน้อยกว่าจุดที่ต้องเลื่อน ให้พยายามเลื่อนเท่าที่ทำได้
+        mainScrollRef.current.scrollTop = targetScroll;
+        if (lenisRef.current) {
+          // สั่ง Lenis ให้คำนวณความสูงใหม่ของหน้าจอ และย้ายจุด Scroll ทันที
+          lenisRef.current.resize();
+          lenisRef.current.scrollTo(targetScroll, { immediate: true });
         }
-      });
-    }
+      }
+    };
+
+    // รอให้ React เรนเดอร์ DOM ชุดใหม่เสร็จก่อน ค่อยเรียกคืนค่า Scroll
+    requestAnimationFrame(() => {
+      restoreScrollPosition();
+      // ย้ำคำสั่งอีกครั้งเผื่อกรณีที่คอนเทนต์/รูปภาพเพิ่งโหลดเสร็จทำให้ความสูงเปลี่ยน
+      setTimeout(restoreScrollPosition, 50);
+      setTimeout(restoreScrollPosition, 150); 
+    });
   }, [activeTab]);
 
   // Lenis Smooth Scroll Initialization
