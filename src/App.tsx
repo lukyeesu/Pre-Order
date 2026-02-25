@@ -2946,8 +2946,8 @@ function App() {
                           {product.name}
                         </h3>
                         <div className="mt-auto pt-2 sm:pt-4 flex flex-wrap justify-between items-end mb-3 sm:mb-4 gap-2">
-                          <span className="text-sky-600 font-extrabold text-lg sm:text-2xl tracking-tight">฿{product.price.toLocaleString()}</span>
-                          <span className="text-[10px] sm:text-xs font-bold text-slate-400 bg-slate-100 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md w-fit">เหลือ {product.stock}</span>
+                          <span className="text-sky-600 font-extrabold text-lg sm:text-2xl tracking-tight">฿{Number(product.price).toLocaleString()}</span>
+                          <span className="text-[10px] sm:text-xs font-bold text-slate-400 bg-slate-100 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md w-fit">เหลือ {Number(product.stock).toLocaleString()}</span>
                         </div>
                       </div>
                       <button onClick={() => openModal('product_details', product)} disabled={isSoldOut} className="w-full bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 text-white py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-bold transition-all shadow-sm hover:shadow-[0_4px_15px_rgba(14,165,233,0.3)] flex items-center justify-center gap-1.5 sm:gap-2">
@@ -3043,9 +3043,9 @@ function App() {
                             {product.name}
                           </h3>
                           <div className="mt-auto pt-2 flex flex-wrap justify-between items-end mb-2 sm:mb-3 gap-2">
-                            <span className="text-blue-600 font-extrabold text-lg sm:text-2xl tracking-tight">฿{product.price.toLocaleString()}</span>
+                            <span className="text-blue-600 font-extrabold text-lg sm:text-2xl tracking-tight">฿{Number(product.price).toLocaleString()}</span>
                             <span className={`text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md border font-mono tracking-wide font-bold w-fit ${product.stock > 0 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'}`}>
-                              QTY: {product.stock}
+                              QTY: {Number(product.stock).toLocaleString()}
                             </span>
                           </div>
                         </div>
@@ -3743,30 +3743,32 @@ function App() {
             {modal.type === 'edit_order' && draftOrder && (
               <div className="flex flex-col flex-1 min-h-0 bg-slate-50">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 sm:p-6 border-b border-slate-200 bg-white flex-shrink-0 gap-4 relative">
-                  <div className="pr-20 sm:pr-0">
+                  <div className="pr-24 sm:pr-0">
                     <h3 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2"><Receipt className="w-6 h-6 text-purple-600" /> {isAdminOrStaff ? 'จัดการคำสั่งซื้อ' : 'รายละเอียดคำสั่งซื้อ'}</h3>
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-sm font-mono text-slate-500">ID: {draftOrder.id}</p>
                       {draftOrder.createdBy && <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">บันทึกโดย: {draftOrder.createdBy}</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
-                    {isAdminOrStaff ? (
-                      <select 
-                        className={`border border-slate-200 text-sm font-bold rounded-xl block w-full sm:w-56 p-2.5 outline-none shadow-sm cursor-pointer ${getColorClasses(orderStatuses.find(s=>s.id === draftOrder.status)?.color || 'slate')}`}
-                        value={draftOrder.status} onChange={(e) => updateDraftOrderField('status', e.target.value)}
-                      >
-                        {orderStatuses.map(s => <option key={s.id} value={s.id} className="text-slate-800 bg-white">{s.label}</option>)}
-                      </select>
-                    ) : (
-                      <div className="block w-full sm:w-auto">{getStatusBadge(draftOrder.status)}</div>
-                    )}
-                  </div>
-                  <div className="absolute top-4 right-4 sm:static flex items-center gap-2">
-                    <button type="button" onClick={(e) => handleShareOrder(e, draftOrder as Order)} className="text-blue-600 hover:text-blue-800 bg-blue-50 p-2 rounded-full border border-blue-100 shadow-sm transition-colors" title="แชร์ออเดอร์">
-                      <Share2 className="w-5 h-5"/>
-                    </button>
-                    <button type="button" onClick={closeModal} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full border border-slate-200 shadow-sm transition-colors"><X className="w-5 h-5"/></button>
+                  <div className="flex items-center justify-end gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                    <div className="w-full sm:w-auto">
+                      {isAdminOrStaff ? (
+                        <select 
+                          className={`border border-slate-200 text-sm font-bold rounded-xl block w-full sm:w-56 p-2.5 outline-none shadow-sm cursor-pointer ${getColorClasses(orderStatuses.find(s=>s.id === draftOrder.status)?.color || 'slate')}`}
+                          value={draftOrder.status} onChange={(e) => updateDraftOrderField('status', e.target.value)}
+                        >
+                          {orderStatuses.map(s => <option key={s.id} value={s.id} className="text-slate-800 bg-white">{s.label}</option>)}
+                        </select>
+                      ) : (
+                        <div className="block">{getStatusBadge(draftOrder.status)}</div>
+                      )}
+                    </div>
+                    <div className="absolute top-4 right-4 sm:static flex items-center gap-2 flex-shrink-0">
+                      <button type="button" onClick={(e) => handleShareOrder(e, draftOrder as Order)} className="text-blue-600 hover:text-blue-800 bg-blue-50 p-2 rounded-full border border-blue-100 shadow-sm transition-colors" title="แชร์ออเดอร์">
+                        <Share2 className="w-5 h-5"/>
+                      </button>
+                      <button type="button" onClick={closeModal} className="text-slate-400 hover:text-slate-600 bg-white p-2 rounded-full border border-slate-200 shadow-sm transition-colors"><X className="w-5 h-5"/></button>
+                    </div>
                   </div>
                 </div>
                 
@@ -3829,14 +3831,26 @@ function App() {
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        {draftOrder.items.map((item, idx) => (
+                        {draftOrder.items.map((item, idx) => {
+                          const product = products.find(p => p.id === item.id);
+                          const itemImageUrl = product?.imageUrl;
+                          return (
                           <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl gap-4 hover:border-purple-200 transition-colors">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
-                              <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
-                                {item.variation && <span className="bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-600 font-medium">ตัวเลือก: <span className="font-bold">{item.variation}</span></span>}
-                                <span className="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">฿{item.price.toLocaleString()}</span>
-                                {item.carryingFee > 0 && <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">ค่าหิ้ว +{item.carryingFee}</span>}
+                            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-200 overflow-hidden shadow-sm">
+                                {itemImageUrl ? (
+                                  <img src={itemImageUrl} alt={item.name} className="w-full h-full object-cover cursor-zoom-in hover:opacity-80 transition-opacity" onClick={(e) => { e.stopPropagation(); setZoomedImage(itemImageUrl); }} />
+                                ) : (
+                                  <ImageIcon className="w-6 h-6 text-slate-300" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-slate-800 truncate">{item.name}</p>
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
+                                  {item.variation && <span className="bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-600 font-medium">ตัวเลือก: <span className="font-bold">{item.variation}</span></span>}
+                                  <span className="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">฿{item.price.toLocaleString()}</span>
+                                  {item.carryingFee > 0 && <span className="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">ค่าหิ้ว +{item.carryingFee.toLocaleString()}</span>}
+                                </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-4 self-end sm:self-auto flex-shrink-0">
@@ -3854,7 +3868,7 @@ function App() {
                               )}
                             </div>
                           </div>
-                        ))}
+                        )})}
                       </div>
                     )}
                   </div>
@@ -3907,7 +3921,7 @@ function App() {
                         {isAdminOrStaff ? (
                           <input type="number" min="0" value={draftOrder.shippingFee === 0 ? '' : draftOrder.shippingFee} placeholder="0" onChange={(e) => updateDraftOrderField('shippingFee', e.target.value)} className="w-full bg-white border border-orange-200 rounded-lg px-2 py-1.5 text-sm font-black text-orange-700 outline-none focus:border-orange-400 shadow-sm"/>
                         ) : (
-                          <span className="text-xl font-black text-orange-700">{draftOrder.shippingFee || 0}</span>
+                          <span className="text-xl font-black text-orange-700">{Number(draftOrder.shippingFee || 0).toLocaleString()}</span>
                         )}
                       </div>
                     </div>
@@ -3917,7 +3931,7 @@ function App() {
                         {isAdminOrStaff ? (
                           <input type="number" min="0" value={draftOrder.discount === 0 ? '' : draftOrder.discount} placeholder="0" onChange={(e) => updateDraftOrderField('discount', e.target.value)} className="w-full bg-white border border-rose-200 rounded-lg px-2 py-1.5 text-sm font-black text-rose-700 outline-none focus:border-rose-400 shadow-sm"/>
                         ) : (
-                          <span className="text-xl font-black text-rose-700">{draftOrder.discount || 0}</span>
+                          <span className="text-xl font-black text-rose-700">{Number(draftOrder.discount || 0).toLocaleString()}</span>
                         )}
                       </div>
                     </div>
@@ -3993,8 +4007,8 @@ function App() {
                         </div>
                         <h3 className="text-sm font-bold text-slate-800 line-clamp-2">{product.name}</h3>
                         <div className="mt-2 flex justify-between items-end">
-                          <span className="text-blue-600 font-black">฿{product.price.toLocaleString()}</span>
-                          <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded">เหลือ {product.stock}</span>
+                          <span className="text-blue-600 font-black">฿{Number(product.price).toLocaleString()}</span>
+                          <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-2 py-1 rounded">เหลือ {Number(product.stock).toLocaleString()}</span>
                         </div>
                       </div>
                     )})}
@@ -4059,7 +4073,7 @@ function App() {
                          <h3 className="text-xl sm:text-2xl font-black text-slate-800 leading-snug">{modal.data?.name}</h3>
                          <div className="flex flex-wrap items-end gap-3 mt-3 sm:mt-4">
                            <p className="text-3xl sm:text-4xl font-black text-blue-600 tracking-tight leading-none drop-shadow-sm">฿{Number(modal.data?.price || 0).toLocaleString()}</p>
-                           <span className="text-[11px] font-black text-rose-600 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-100 mb-0.5 sm:mb-1">เหลือ {modal.data?.stock} ชิ้น</span>
+                           <span className="text-[11px] font-black text-rose-600 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-100 mb-0.5 sm:mb-1">เหลือ {Number(modal.data?.stock || 0).toLocaleString()} ชิ้น</span>
                          </div>
                          
                          <div className="flex flex-wrap gap-2 mt-4">
@@ -4319,8 +4333,8 @@ function App() {
                             <h4 className="font-bold text-slate-800 text-sm truncate">{item.product.name}</h4>
                             <div className="flex flex-wrap gap-2 text-xs mt-1.5">
                               {item.variation && <span className="text-slate-500">แบบ: {item.variation}</span>}
-                              {(item.product.carryingFee > 0) && <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1"><ShoppingBag className="w-3 h-3"/> หิ้ว +{item.product.carryingFee}</span>}
-                              {(item.product.shippingFee > 0) && <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1"><Truck className="w-3 h-3"/> ส่ง +{item.product.shippingFee}</span>}
+                              {(item.product.carryingFee > 0) && <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1"><ShoppingBag className="w-3 h-3"/> หิ้ว +{item.product.carryingFee.toLocaleString()}</span>}
+                              {(item.product.shippingFee > 0) && <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1"><Truck className="w-3 h-3"/> ส่ง +{item.product.shippingFee.toLocaleString()}</span>}
                             </div>
                             <p className="text-sky-600 font-bold text-sm mt-1.5">฿{(item.product.price * item.qty).toLocaleString()}</p>
                           </div>
