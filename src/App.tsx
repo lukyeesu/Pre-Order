@@ -6,7 +6,7 @@ import {
   Phone, User, Truck, AlignLeft, Tags, GripHorizontal, ArrowLeft, 
   Receipt, Banknote, PenTool, Save, Tag, Landmark, Search, 
   Download, PieChart, TrendingUp, AlertTriangle, CheckCircle, Folder, Activity, Award, Filter,
-  Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2
+  Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle
 } from 'lucide-react';
 
 // --- TYPES & INTERFACES ---
@@ -127,6 +127,8 @@ export interface SystemSettings {
   storeBankName?: string;    // Add this (ธนาคารของร้าน)
   storeBankAccount?: string; // Add this (เลขบัญชีของร้าน)
   storeAccountName?: string; // Add this (ชื่อบัญชีของร้าน)
+  telegramBotToken?: string; // Add this
+  telegramChatId?: string;   // Add this
 }
 
 // --- CONFIGURATION ---
@@ -367,7 +369,9 @@ function App() {
     driveSystemFolderId: '',
     storeBankName: '',
     storeBankAccount: '',
-    storeAccountName: ''
+    storeAccountName: '',
+    telegramBotToken: '',
+    telegramChatId: ''
   });
   
   // Core States
@@ -3300,7 +3304,7 @@ function App() {
             </div>
             
             <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-6 pb-20 space-y-6">
-              <div className="max-w-6xl bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white space-y-5 relative overflow-hidden">
+              <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white space-y-5 relative overflow-hidden">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                   <div className="p-2 bg-blue-50 text-blue-600 rounded-xl"><Settings className="w-5 h-5"/></div>
                   <h3 className="text-lg font-black text-slate-800 tracking-wide">ตั้งค่าข้อมูลร้านและระบบ</h3>
@@ -3351,6 +3355,24 @@ function App() {
                     <input type="text" value={sysSettings.driveSystemFolderId} onChange={(e) => setSysSettings({...sysSettings, driveSystemFolderId: e.target.value})} placeholder="เช่น 0J9I8H7G6F5E..." className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 font-mono text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all shadow-inner" />
                   </div>
                 </div>
+
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4 pt-4 mt-4">
+                  <div className="p-2 bg-sky-50 text-sky-600 rounded-xl"><MessageCircle className="w-5 h-5"/></div>
+                  <h3 className="text-lg font-black text-slate-800 tracking-wide">การแจ้งเตือน (Telegram)</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">Bot Token</label>
+                    <p className="text-[11px] text-slate-400 mb-2 font-medium">ได้รับจากการสร้างบอทผ่าน @BotFather</p>
+                    <input type="text" value={sysSettings.telegramBotToken || ''} onChange={(e) => setSysSettings({...sysSettings, telegramBotToken: e.target.value})} placeholder="เช่น 7xxxxxxxxx:AA..." className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 font-mono text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all shadow-inner" />
+                  </div>
+                  <div>
+                    <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">Chat ID</label>
+                    <p className="text-[11px] text-slate-400 mb-2 font-medium">ไอดีห้องแชท หรือ Group (เช่น -100xxxxxxxxxx)</p>
+                    <input type="text" value={sysSettings.telegramChatId || ''} onChange={(e) => setSysSettings({...sysSettings, telegramChatId: e.target.value})} placeholder="-100xxxxxxxxxx" className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 font-mono text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all shadow-inner" />
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-4 border-t border-slate-100 mt-2">
                   <button onClick={handleSaveSettings} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all">
                     <Save className="w-4 h-4" /> บันทึกการตั้งค่า
@@ -3358,7 +3380,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
                 <div className="bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white flex flex-col h-[480px]">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-shrink-0">
                     <div className="flex items-center gap-3"><div className="p-2 bg-purple-50 text-purple-600 rounded-xl"><Tag className="w-5 h-5"/></div><h3 className="text-lg font-black text-slate-800">จัดการสถานะ</h3></div>
