@@ -3828,7 +3828,7 @@ function App() {
 
             {/* PRODUCT DETAILS (Shared) */}
             {(modal.type === 'product_details' || modal.type === 'product_details_for_order') && (
-              <div className="flex flex-col w-full h-full flex-1 min-h-0 bg-slate-50 relative overflow-hidden">
+              <div className="flex flex-col w-full h-full flex-1 min-h-0 bg-white relative overflow-hidden">
                 
                 {/* Scrollable Content Area */}
                 <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-y-auto md:overflow-hidden">
@@ -3898,19 +3898,19 @@ function App() {
                              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5"><Tags className="w-4 h-4 text-blue-500"/> ตัวเลือกสินค้า</h4>
                              {selectedVariation && <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100 shadow-sm truncate max-w-[120px]">เลือก: {selectedVariation}</span>}
                            </div>
-                           <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
+                           <div className="grid grid-cols-5 sm:grid-cols-6 gap-1.5 sm:gap-2.5">
                              {modal.data.variations.map((v: Variation) => {
                                const isSelected = selectedVariation === v.name;
                                const isOutOfStock = v.stock <= 0 && activeTab === 'store';
                                return (
                                  <button key={v.name} onClick={() => setSelectedVariation(v.name)} disabled={isOutOfStock}
-                                   className={`relative flex flex-col items-center justify-center p-1.5 rounded-xl border-2 font-bold transition-all duration-200 aspect-square
+                                   className={`relative flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-xl border-2 font-bold transition-all duration-200 aspect-square
                                      ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm scale-[1.02]' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}
                                      ${isOutOfStock ? 'opacity-50 cursor-not-allowed grayscale' : 'active:scale-95'}
                                    `}>
-                                   {isSelected && <div className="absolute top-0 right-0 w-0 h-0 border-t-[16px] border-r-[16px] border-t-blue-500 border-r-transparent"><Check className="absolute -top-[16px] right-[1px] w-3 h-3 text-white stroke-[3]"/></div>}
-                                   <span className="text-[11px] z-10 w-full text-center px-0.5 leading-tight break-words line-clamp-2">{v.name}</span>
-                                   <span className={`text-[9px] mt-1 z-10 font-bold px-1.5 py-0.5 rounded-sm whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500')}`}>
+                                   {isSelected && <div className="absolute top-0 right-0 w-0 h-0 border-t-[14px] sm:border-t-[16px] border-r-[14px] sm:border-r-[16px] border-t-blue-500 border-r-transparent"><Check className="absolute -top-[14px] sm:-top-[16px] right-[1px] w-2.5 h-2.5 sm:w-3 sm:h-3 text-white stroke-[3]"/></div>}
+                                   <span className="text-[9px] sm:text-[11px] z-10 w-full text-center px-0.5 leading-tight break-words line-clamp-2">{v.name}</span>
+                                   <span className={`text-[8px] sm:text-[9px] mt-0.5 sm:mt-1 z-10 font-bold px-1 sm:px-1.5 py-0.5 rounded-sm whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500')}`}>
                                      {isOutOfStock ? 'หมด' : v.stock}
                                    </span>
                                  </button>
@@ -3928,9 +3928,9 @@ function App() {
                          </div>
                          <div className="text-xs sm:text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
                            {modal.data?.description ? (
-                              <div className="bg-slate-50 border border-slate-100 shadow-sm p-4 sm:p-5 rounded-2xl">{modal.data.description}</div>
+                              <div className="bg-white border border-slate-200 shadow-sm p-4 sm:p-5 rounded-2xl">{modal.data.description}</div>
                            ) : (
-                              <div className="flex flex-col items-center justify-center text-slate-400 italic bg-slate-50/50 rounded-xl border border-dashed border-slate-200 py-8">ไม่มีรายละเอียดสินค้าระบุไว้</div>
+                              <div className="flex flex-col items-center justify-center text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200 py-8">ไม่มีรายละเอียดสินค้าระบุไว้</div>
                            )}
                          </div>
                        </div>
@@ -4066,10 +4066,10 @@ function App() {
                       </div>
                       <div className="space-y-2.5">
                         {formVariations.map((v, idx) => (
-                          <div key={idx} className="flex gap-2 items-center">
-                            <input type="text" value={v.name} onChange={(e) => handleChangeFormVariation(idx, 'name', e.target.value)} placeholder="เช่น XS, สีดำ" required className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors" />
-                            <input type="number" value={v.stock} onChange={(e) => handleChangeFormVariation(idx, 'stock', e.target.value)} placeholder="สต๊อก" required className="w-24 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors" />
-                            <button type="button" onClick={() => handleRemoveFormVariation(idx)} className="text-rose-400 p-2.5 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4"/></button>
+                          <div key={idx} className="flex gap-1.5 sm:gap-2 items-center w-full">
+                            <input type="text" value={v.name} onChange={(e) => handleChangeFormVariation(idx, 'name', e.target.value)} placeholder="เช่น XS, สีดำ" required className="flex-1 min-w-0 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors" />
+                            <input type="number" value={v.stock} onChange={(e) => handleChangeFormVariation(idx, 'stock', e.target.value)} placeholder="สต๊อก" required className="w-16 sm:w-24 flex-shrink-0 p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors" />
+                            <button type="button" onClick={() => handleRemoveFormVariation(idx)} className="text-rose-400 p-2.5 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0"><Trash2 className="w-4 h-4"/></button>
                           </div>
                         ))}
                         {formVariations.length === 0 && <div className="text-xs text-slate-400 italic mt-2 bg-slate-50 p-3 rounded-lg border border-dashed border-slate-200 text-center">ไม่มีตัวเลือกย่อย (สามารถเพิ่มได้ถ้าสินค้ามีหลายขนาด/สี)</div>}
@@ -4101,9 +4101,9 @@ function App() {
                 </div>
                 
                 {/* Footer fixed at bottom */}
-                <div className="p-4 sm:p-5 border-t border-slate-200 bg-white flex justify-end gap-3 flex-shrink-0 z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
-                  <button type="button" onClick={closeModal} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-700 transition-colors">ยกเลิก</button>
-                  <button type="submit" className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex items-center gap-2"><Save className="w-4 h-4"/> บันทึกข้อมูล</button>
+                <div className="p-4 sm:p-5 border-t border-slate-200 bg-white grid grid-cols-2 sm:flex sm:justify-end gap-3 flex-shrink-0 z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
+                  <button type="button" onClick={closeModal} className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-700 transition-colors flex items-center justify-center">ยกเลิก</button>
+                  <button type="submit" className="w-full sm:w-auto px-6 sm:px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-2"><Save className="w-4 h-4 flex-shrink-0"/> <span className="truncate">บันทึกข้อมูล</span></button>
                 </div>
               </form>
             )}
