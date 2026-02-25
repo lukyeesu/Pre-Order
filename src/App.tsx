@@ -1092,39 +1092,6 @@ function App() {
   };
 
   // --- ORDER ACTION HELPERS ---
-  const getNextStatusInfo = (currentStatus: string) => {
-    const statusFlow: Record<string, string> = {
-      'waiting_payment': 'paid',
-      'paid': 'sourcing',
-      'sourcing': 'purchased',
-      'purchased': 'waiting_delivery',
-      'waiting_delivery': 'delivered'
-    };
-    const nextId = statusFlow[currentStatus];
-    if (!nextId) return null;
-    return orderStatuses.find(s => s.id === nextId);
-  };
-
-  const handleNextStatus = async (e: React.MouseEvent, order: Order) => {
-    e.stopPropagation(); // ป้องกันไม่ให้ทะลุไปเปิด Modal แก้ไข
-    if (isProcessing) return;
-    
-    const nextStatusObj = getNextStatusInfo(order.status);
-    if (!nextStatusObj) return;
-
-    setIsProcessing(true); setIsLoading(true);
-    const updatedOrder = { ...order, status: nextStatusObj.id };
-    
-    try {
-      await callServerAPI('saveOrder', updatedOrder);
-      setOrders(orders.map(o => o.id === order.id ? updatedOrder : o));
-      showToast(`เลื่อนสถานะเป็น "${nextStatusObj.label}" เรียบร้อย`, 'success');
-    } catch (err) {
-      showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
-    }
-    setIsProcessing(false); setIsLoading(false);
-  };
-
   const handleShareOrder = (e: React.MouseEvent, order: Order) => {
     e.stopPropagation();
     const itemsText = order.items.map(i => `- ${i.name} ${i.variation ? `(${i.variation})` : ''} x${i.qty}`).join('\n');
