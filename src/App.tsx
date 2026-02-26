@@ -288,11 +288,12 @@ const ImageZoomOverlay: React.FC<{ imageUrl: string, onClose: () => void }> = ({
      }
   };
 
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = originalOverflow; };
-  }, []);
+  // ลบ useEffect ตัวนี้ออกไป เพื่อไม่ให้ไปกวน overflow ของ body
+  // useEffect(() => {
+  //   const originalOverflow = document.body.style.overflow;
+  //   document.body.style.overflow = 'hidden';
+  //   return () => { document.body.style.overflow = originalOverflow; };
+  // }, []);
 
   return (
     <div
