@@ -4085,7 +4085,8 @@ function App() {
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >
-          <div className={`bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl overflow-hidden transform transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isAnnouncementVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          {/* เปลี่ยน transition-all เป็น transition ธรรมดา เพื่อไม่ให้มัน animate ความสูงตอนเนื้อหา/รูปภาพโหลดเสร็จ */}
+          <div className={`bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl overflow-hidden transform transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isAnnouncementVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             
             {/* Header */}
             <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-4 sm:p-5 flex items-center justify-between flex-shrink-0">
@@ -4137,7 +4138,8 @@ function App() {
                 <option key={`ouc-${i}`} value={name} />
              ))}
           </datalist>
-          <div className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isModalVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}
+          {/* เปลี่ยน transition-all เป็น transition ธรรมดา เพื่อป้องกัน Layout Shift/Flicker บนมือถือ */}
+          <div className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isModalVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}
               ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[90vh] md:max-h-[85vh] md:min-h-[500px]' : 
                 (modal.type === 'store_for_order' ? 'max-w-4xl max-h-[85vh] md:h-[600px]' :
                 (modal.type === 'edit_order' ? 'max-w-4xl max-h-[90vh]' :
