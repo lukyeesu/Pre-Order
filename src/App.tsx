@@ -682,8 +682,8 @@ function App() {
     if (activeTab === 'store' && sysSettings.isAnnouncementActive && sysSettings.announcementText && !hasSeenAnnouncement && hideDate !== today) {
       const timer = setTimeout(() => {
         setShowAnnouncement(true);
-        // หน่วงเวลาเล็กน้อยให้ DOM วาดเสร็จก่อน ค่อยเรียกแอนิเมชัน
-        setTimeout(() => setIsAnnouncementVisible(true), 10);
+        // หน่วงเวลาเพิ่มขึ้นเล็กน้อย เพื่อรับประกันว่าเบราว์เซอร์วาดกล่องขนาดเล็กเสร็จก่อนค่อยสั่งขยาย
+        setTimeout(() => setIsAnnouncementVisible(true), 50); 
       }, 500); 
       return () => clearTimeout(timer);
     }
@@ -691,7 +691,7 @@ function App() {
 
   const closeAnnouncement = () => {
     setIsAnnouncementVisible(false); // สั่งปิดแอนิเมชันก่อน
-    setTimeout(() => { // รอแอนิเมชันเล่นจบ 300ms ค่อยลบ DOM ทิ้ง
+    setTimeout(() => { // เพิ่มเวลารอให้สัมพันธ์กับ duration ของแอนิเมชันใหม่
       setShowAnnouncement(false);
       setHasSeenAnnouncement(true);
       if (dontShowToday) {
@@ -701,7 +701,7 @@ function App() {
           console.warn('Cannot save to LocalStorage');
         }
       }
-    }, 300);
+    }, 400);
   };
 
   // --- HELPER FUNCTIONS ---
@@ -1804,21 +1804,21 @@ function App() {
       setPreviewUrl(data?.imageUrl || '');
       setPreviewUrls(data?.images || (data?.imageUrl ? [data.imageUrl] : []));
     }
-    // หน่วงเวลาเล็กน้อยเพื่อให้ Element ถูก Render ก่อน แล้วค่อยใส่ Class โชว์ Animation
-    setTimeout(() => setIsModalVisible(true), 10);
+    // หน่วงเวลาเพิ่มขึ้นเล็กน้อย เพื่อรับประกันว่าเบราว์เซอร์วาดกล่องขนาดเล็กเสร็จก่อนค่อยสั่งขยาย
+    setTimeout(() => setIsModalVisible(true), 50);
   };
 
   const closeModal = () => {
     // ให้แสดง Animation ปิดก่อนค่อยเคลียร์ข้อมูล
     setIsModalVisible(false);
-    setTimeout(() => {
+    setTimeout(() => { // เพิ่มเวลารอให้สัมพันธ์กับ duration ของแอนิเมชันใหม่
       setModal({ isOpen: false, type: '', data: null });
       setFormVariations([]);
       setPreviewUrl('');
       setPreviewUrls([]);
       setSelectedImage('');
       if (modal.type === 'edit_order') setDraftOrder(null);
-    }, 300); // 300ms ตรงกับระยะเวลา Transition
+    }, 400); 
   };
 
   const handleAddFormVariation = () => setFormVariations([...formVariations, { name: '', stock: 0 }]);
@@ -4081,13 +4081,13 @@ function App() {
       {/* --- ANNOUNCEMENT POP-UP (GLOBAL LEVEL) --- */}
       {showAnnouncement && (
         <div 
-          className={`fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 transition-opacity duration-300 ease-out transform-gpu ${isAnnouncementVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          className={`fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 transition-opacity duration-400 ease-out transform-gpu ${isAnnouncementVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
           style={{ WebkitBackfaceVisibility: 'hidden', WebkitPerspective: 1000 }}
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >
           <div 
-            className={`bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl overflow-hidden transform-gpu transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isAnnouncementVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.95] opacity-0 translate-y-8'}`}
+            className={`bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl overflow-hidden transform-gpu transition duration-400 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isAnnouncementVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-8'}`}
             style={{ WebkitBackfaceVisibility: 'hidden', WebkitPerspective: 1000, WebkitTransform: 'translate3d(0,0,0)' }}
           >
             
@@ -4128,12 +4128,12 @@ function App() {
       {/* --- MODALS --- */}
       {modal.isOpen && (
         <div 
-          className={`fixed inset-0 bg-slate-900/40 backdrop-blur-[4px] z-[100] flex items-center justify-center p-3 sm:p-4 transition-opacity duration-300 ease-out transform-gpu ${isModalVisible ? 'opacity-100' : 'opacity-0'}`} 
+          className={`fixed inset-0 bg-slate-900/40 backdrop-blur-[4px] z-[100] flex items-center justify-center p-3 sm:p-4 transition-opacity duration-400 ease-out transform-gpu ${isModalVisible ? 'opacity-100' : 'opacity-0'}`} 
           style={{ WebkitBackfaceVisibility: 'hidden', WebkitPerspective: 1000 }}
           onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}
         >
           <div 
-            className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform-gpu transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isModalVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.95] opacity-0 translate-y-8'}
+            className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform-gpu transition duration-400 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isModalVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-8'}
               ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[90vh] md:max-h-[85vh] md:min-h-[500px]' : 
                 (modal.type === 'store_for_order' ? 'max-w-4xl max-h-[85vh] md:h-[600px]' :
                 (modal.type === 'edit_order' ? 'max-w-4xl max-h-[90vh]' :
