@@ -178,6 +178,31 @@ const TableScrollWrapper: React.FC<{ children: React.ReactNode, className?: stri
   );
 };
 
+// คอมโพเนนต์ใหม่สำหรับ Textarea ที่ต้องการให้ Scroll ได้เมื่อใช้ร่วมกับ Lenis
+const TextAreaScrollable: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = (props) => {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      const isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (isHorizontal) {
+        e.stopPropagation();
+        return;
+      }
+      const canScrollUp = el.scrollTop > 0;
+      const canScrollDown = Math.ceil(el.scrollTop + el.clientHeight) < el.scrollHeight;
+      
+      if ((e.deltaY < 0 && canScrollUp) || (e.deltaY > 0 && canScrollDown)) {
+        e.stopPropagation();
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: true });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
+  return <textarea ref={ref} {...props} />;
+};
+
 // --- IMAGE ZOOM COMPONENT ---
 const ImageZoomOverlay: React.FC<{ imageUrl: string, onClose: () => void }> = ({ imageUrl, onClose }) => {
   const [scale, setScale] = useState(1);
@@ -3619,7 +3644,7 @@ function App() {
                   {sysSettings.isAnnouncementActive && (
                     <div className="mt-2">
                       <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">ข้อความบนป๊อปอัพ (รองรับการขึ้นบรรทัดใหม่)</label>
-                      <textarea rows={3} value={typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')} onChange={(e) => setSysSettings({...sysSettings, announcementText: e.target.value})} placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." className="w-full p-4 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-sm resize-none"></textarea>
+                      <TextAreaScrollable rows={4} value={typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')} onChange={(e) => setSysSettings({...sysSettings, announcementText: e.target.value})} placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." className="w-full p-4 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-sm resize-none overflow-y-auto" />
                     </div>
                   )}
                 </div>
@@ -3676,7 +3701,7 @@ function App() {
                       </div>
                       <div>
                         <label className="block text-orange-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">รายละเอียด/หมายเหตุการจัดส่ง</label>
-                        <textarea rows={2} value={sysSettings.shippingNote || ''} onChange={(e) => setSysSettings({...sysSettings, shippingNote: e.target.value})} placeholder="เช่น จัดส่งผ่าน Kerry Express ระยะเวลา 1-2 วัน" className="w-full p-3 bg-white border border-orange-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm resize-none"></textarea>
+                        <TextAreaScrollable rows={3} value={sysSettings.shippingNote || ''} onChange={(e) => setSysSettings({...sysSettings, shippingNote: e.target.value})} placeholder="เช่น จัดส่งผ่าน Kerry Express ระยะเวลา 1-2 วัน" className="w-full p-3 bg-white border border-orange-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm resize-none overflow-y-auto" />
                       </div>
                    </div>
 
@@ -3691,7 +3716,7 @@ function App() {
                       </div>
                       <div>
                         <label className="block text-emerald-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">รายละเอียดสถานที่นัดรับ</label>
-                        <textarea rows={2} value={sysSettings.pickupNote || ''} onChange={(e) => setSysSettings({...sysSettings, pickupNote: e.target.value})} placeholder="เช่น นัดรับได้ที่หน้าหมู่บ้าน..." className="w-full p-3 bg-white border border-emerald-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm resize-none"></textarea>
+                        <TextAreaScrollable rows={3} value={sysSettings.pickupNote || ''} onChange={(e) => setSysSettings({...sysSettings, pickupNote: e.target.value})} placeholder="เช่น นัดรับได้ที่หน้าหมู่บ้าน..." className="w-full p-3 bg-white border border-emerald-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm resize-none overflow-y-auto" />
                       </div>
                    </div>
                 </div>
@@ -4469,13 +4494,18 @@ function App() {
                                const isOutOfStock = v.stock <= 0 && activeTab === 'store';
                                return (
                                  <button key={v.name} onClick={() => setSelectedVariation(v.name)} disabled={isOutOfStock}
-                                   className={`relative flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-xl border-2 font-bold transition-all duration-200 aspect-square
+                                   className={`relative flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-xl border-2 font-bold transition-all duration-200 aspect-square overflow-hidden
                                      ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm scale-[1.02]' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}
                                      ${isOutOfStock ? 'opacity-50 cursor-not-allowed grayscale' : 'active:scale-95'}
                                    `}>
-                                   {isSelected && <div className="absolute top-0 right-0 w-0 h-0 border-t-[14px] sm:border-t-[16px] border-r-[14px] sm:border-r-[16px] border-t-blue-500 border-r-transparent"><Check className="absolute -top-[14px] sm:-top-[16px] right-[1px] w-2.5 h-2.5 sm:w-3 sm:h-3 text-white stroke-[3]"/></div>}
-                                   <span className="text-[9px] sm:text-[11px] z-10 w-full text-center px-0.5 leading-tight break-words line-clamp-2">{v.name}</span>
-                                   <span className={`text-[8px] sm:text-[9px] mt-0.5 sm:mt-1 z-10 font-bold px-1 sm:px-1.5 py-0.5 rounded-sm whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500')}`}>
+                                   {isSelected && (
+                                     <>
+                                       <div className="absolute -top-3.5 -right-3.5 w-7 h-7 sm:-top-4 sm:-right-4 sm:w-8 sm:h-8 bg-blue-500 rotate-45 z-0 transition-transform"></div>
+                                       <Check className="absolute top-0.5 right-0.5 sm:top-[2px] sm:right-[2px] w-2.5 h-2.5 sm:w-3 sm:h-3 text-white z-10" strokeWidth={4}/>
+                                     </>
+                                   )}
+                                   <span className="text-xs sm:text-sm z-10 w-full text-center px-0.5 leading-tight break-words line-clamp-2">{v.name}</span>
+                                   <span className={`text-[9px] sm:text-[10px] mt-0.5 sm:mt-1 z-10 font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500')}`}>
                                      {isOutOfStock ? 'หมด' : v.stock}
                                    </span>
                                  </button>
