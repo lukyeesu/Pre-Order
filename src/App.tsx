@@ -4606,15 +4606,15 @@ function App() {
                                 {(item.product.shippingFee > 0) && <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1 whitespace-nowrap"><Truck className="w-3 h-3"/> ส่ง +{item.product.shippingFee.toLocaleString()}</span>}
                               </div>
                             </div>
-                            <div className="flex items-end justify-between mt-3">
-                              <p className="text-sky-600 font-black text-sm sm:text-base leading-none tracking-tight">฿{(item.product.price * item.qty).toLocaleString()}</p>
+                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
+                              <p className="text-blue-600 font-black text-base sm:text-lg leading-none tracking-tight">฿{(item.product.price * item.qty).toLocaleString()}</p>
                               <div className="flex items-center gap-2 sm:gap-3">
-                                <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100 shadow-sm">
-                                  <button onClick={() => updateCartQty(item.id, -1)} className="p-1 sm:p-1.5 hover:bg-white rounded-md transition-colors text-slate-500 hover:text-slate-800"><Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></button>
-                                  <span className="w-5 sm:w-7 text-center font-bold text-xs sm:text-sm text-slate-700">{item.qty}</span>
-                                  <button onClick={() => updateCartQty(item.id, 1)} className="p-1 sm:p-1.5 hover:bg-white rounded-md transition-colors text-slate-500 hover:text-slate-800"><Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></button>
+                                <div className="flex items-center gap-1 bg-slate-50 rounded-xl p-1 border border-slate-200 shadow-sm">
+                                  <button onClick={() => updateCartQty(item.id, -1)} className="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-500 hover:text-slate-800 active:scale-95"><Minus className="w-4 h-4" /></button>
+                                  <span className="w-6 sm:w-8 text-center font-black text-sm text-slate-700">{item.qty}</span>
+                                  <button onClick={() => updateCartQty(item.id, 1)} className="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-500 hover:text-slate-800 active:scale-95"><Plus className="w-4 h-4" /></button>
                                 </div>
-                                <button onClick={() => removeFromCart(item.id)} className="p-1.5 sm:p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-100"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+                                <button onClick={() => removeFromCart(item.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-100 active:scale-95"><Trash2 className="w-5 h-5" /></button>
                               </div>
                             </div>
                           </div>
