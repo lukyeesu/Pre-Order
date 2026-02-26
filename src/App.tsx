@@ -4587,31 +4587,37 @@ function App() {
                   <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><ShoppingCart className="w-6 h-6 text-sky-500" /> ตะกร้าสินค้า</h3>
                   <button onClick={closeModal} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
                 </div>
-                <div className="p-5 overflow-y-auto flex-1 bg-white">
+                <div className="p-4 sm:p-5 overflow-y-auto flex-1 bg-white">
                   {cart.length === 0 ? (
                     <div className="text-center py-10"><ShoppingBag className="w-16 h-16 mx-auto text-slate-200 mb-4" /><p className="text-slate-500 font-medium">ไม่มีสินค้าในตะกร้า</p></div>
                   ) : (
                     <div className="space-y-4">
                       {cart.map((item) => (
-                        <div key={item.id} className="flex gap-4 items-center border border-slate-100 p-3 rounded-xl">
-                          <div className="w-16 h-16 bg-slate-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                            {item.product.imageUrl ? <img src={item.product.imageUrl} className="w-full h-full object-cover rounded-lg cursor-zoom-in hover:opacity-80 transition-opacity" onClick={(e) => { e.stopPropagation(); setZoomedImage(item.product.imageUrl); }}/> : <ImageIcon className="w-8 h-8 text-slate-300" />}
+                        <div key={item.id} className="flex gap-3 sm:gap-4 items-start border border-slate-100 p-3 sm:p-4 rounded-2xl bg-white shadow-sm hover:border-sky-200 transition-colors">
+                          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-50 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden border border-slate-100">
+                            {item.product.imageUrl ? <img src={item.product.imageUrl} className="w-full h-full object-cover cursor-zoom-in hover:opacity-80 transition-opacity" onClick={(e) => { e.stopPropagation(); setZoomedImage(item.product.imageUrl); }}/> : <ImageIcon className="w-8 h-8 sm:w-10 sm:h-10 text-slate-300" />}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-slate-800 text-sm truncate">{item.product.name}</h4>
-                            <div className="flex flex-wrap gap-2 text-xs mt-1.5">
-                              {item.variation && <span className="text-slate-500">แบบ: {item.variation}</span>}
-                              {(item.product.carryingFee > 0) && <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1"><ShoppingBag className="w-3 h-3"/> หิ้ว +{item.product.carryingFee.toLocaleString()}</span>}
-                              {(item.product.shippingFee > 0) && <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1"><Truck className="w-3 h-3"/> ส่ง +{item.product.shippingFee.toLocaleString()}</span>}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between h-full min-h-[5rem] sm:min-h-[6rem]">
+                            <div>
+                              <h4 className="font-bold text-slate-800 text-sm sm:text-base line-clamp-2 leading-tight">{item.product.name}</h4>
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-xs mt-1.5">
+                                {item.variation && <span className="text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap">แบบ: {item.variation}</span>}
+                                {(item.product.carryingFee > 0) && <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1 whitespace-nowrap"><ShoppingBag className="w-3 h-3"/> หิ้ว +{item.product.carryingFee.toLocaleString()}</span>}
+                                {(item.product.shippingFee > 0) && <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1 whitespace-nowrap"><Truck className="w-3 h-3"/> ส่ง +{item.product.shippingFee.toLocaleString()}</span>}
+                              </div>
                             </div>
-                            <p className="text-sky-600 font-bold text-sm mt-1.5">฿{(item.product.price * item.qty).toLocaleString()}</p>
+                            <div className="flex items-end justify-between mt-3">
+                              <p className="text-sky-600 font-black text-sm sm:text-base leading-none tracking-tight">฿{(item.product.price * item.qty).toLocaleString()}</p>
+                              <div className="flex items-center gap-2 sm:gap-3">
+                                <div className="flex items-center gap-1 bg-slate-50 rounded-lg p-1 border border-slate-100 shadow-sm">
+                                  <button onClick={() => updateCartQty(item.id, -1)} className="p-1 sm:p-1.5 hover:bg-white rounded-md transition-colors text-slate-500 hover:text-slate-800"><Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></button>
+                                  <span className="w-5 sm:w-7 text-center font-bold text-xs sm:text-sm text-slate-700">{item.qty}</span>
+                                  <button onClick={() => updateCartQty(item.id, 1)} className="p-1 sm:p-1.5 hover:bg-white rounded-md transition-colors text-slate-500 hover:text-slate-800"><Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></button>
+                                </div>
+                                <button onClick={() => removeFromCart(item.id)} className="p-1.5 sm:p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-100"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-1 flex-shrink-0">
-                            <button onClick={() => updateCartQty(item.id, -1)} className="p-1"><Minus className="w-4 h-4" /></button>
-                            <span className="w-6 text-center font-bold">{item.qty}</span>
-                            <button onClick={() => updateCartQty(item.id, 1)} className="p-1"><Plus className="w-4 h-4" /></button>
-                          </div>
-                          <button onClick={() => removeFromCart(item.id)} className="p-2 text-rose-400 flex-shrink-0"><Trash2 className="w-5 h-5" /></button>
                         </div>
                       ))}
                     </div>
