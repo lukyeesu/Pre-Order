@@ -131,6 +131,13 @@ export interface SystemSettings {
   telegramChatId?: string;   // Add this
   announcementText?: string;               // Add this
   isAnnouncementActive?: boolean | string; // Add this
+  isCapsuleActive?: boolean | string;      // Add this
+  capsuleText?: string;                    // Add this
+  shippingNote?: string;                   // Add this
+  pickupNote?: string;                     // Add this
+  baseShippingFee?: number | string;       // Add this (ค่าจัดส่งชิ้นแรก)
+  addShippingFee?: number | string;        // Add this (ค่าจัดส่งชิ้นต่อไป)
+  pickupFee?: number | string;             // Add this (ค่าธรรมเนียมการนัดรับ)
 }
 
 // --- CONFIGURATION ---
@@ -169,6 +176,31 @@ const TableScrollWrapper: React.FC<{ children: React.ReactNode, className?: stri
       {children}
     </div>
   );
+};
+
+// คอมโพเนนต์ใหม่สำหรับ Textarea ที่ต้องการให้ Scroll ได้เมื่อใช้ร่วมกับ Lenis
+const TextAreaScrollable: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = (props) => {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const handleWheel = (e: WheelEvent) => {
+      const isHorizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (isHorizontal) {
+        e.stopPropagation();
+        return;
+      }
+      const canScrollUp = el.scrollTop > 0;
+      const canScrollDown = Math.ceil(el.scrollTop + el.clientHeight) < el.scrollHeight;
+      
+      if ((e.deltaY < 0 && canScrollUp) || (e.deltaY > 0 && canScrollDown)) {
+        e.stopPropagation();
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: true });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
+  return <textarea ref={ref} {...props} />;
 };
 
 // --- IMAGE ZOOM COMPONENT ---
@@ -256,11 +288,12 @@ const ImageZoomOverlay: React.FC<{ imageUrl: string, onClose: () => void }> = ({
      }
   };
 
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = originalOverflow; };
-  }, []);
+  // ลบ useEffect ตัวนี้ออกไป เพื่อไม่ให้ไปกวน overflow ของ body
+  // useEffect(() => {
+  //   const originalOverflow = document.body.style.overflow;
+  //   document.body.style.overflow = 'hidden';
+  //   return () => { document.body.style.overflow = originalOverflow; };
+  // }, []);
 
   return (
     <div
@@ -407,17 +440,21 @@ function App() {
     telegramChatId: '',
     announcementText: '',
     isAnnouncementActive: false,
-    capsuleText: '',
     isCapsuleActive: false,
-    baseShippingFee: 0,
-    nextItemShippingFee: 0
+    capsuleText: '',
+    shippingNote: '',
+    pickupNote: '',
+    baseShippingFee: 50,
+    addShippingFee: 10,
+    pickupFee: 0
   });
 
   // Announcement States
   const [showAnnouncement, setShowAnnouncement] = useState<boolean>(false);
+  const [isAnnouncementVisible, setIsAnnouncementVisible] = useState<boolean>(false); // เพิ่ม State สำหรับควบคุมแอนิเมชันให้สมูท
   const [hasSeenAnnouncement, setHasSeenAnnouncement] = useState<boolean>(false);
   const [dontShowToday, setDontShowToday] = useState<boolean>(false);
-  
+
   // Core States
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -645,21 +682,26 @@ function App() {
     if (activeTab === 'store' && sysSettings.isAnnouncementActive && sysSettings.announcementText && !hasSeenAnnouncement && hideDate !== today) {
       const timer = setTimeout(() => {
         setShowAnnouncement(true);
+        // หน่วงเวลาเล็กน้อยให้ DOM วาดเสร็จก่อน ค่อยเรียกแอนิเมชัน
+        setTimeout(() => setIsAnnouncementVisible(true), 10);
       }, 500); 
       return () => clearTimeout(timer);
     }
   }, [activeTab, sysSettings.isAnnouncementActive, sysSettings.announcementText, hasSeenAnnouncement]);
 
   const closeAnnouncement = () => {
-    setShowAnnouncement(false);
-    setHasSeenAnnouncement(true);
-    if (dontShowToday) {
-      try {
-        localStorage.setItem('hideAnnouncementDate', new Date().toDateString());
-      } catch (e) {
-        console.warn('Cannot save to LocalStorage');
+    setIsAnnouncementVisible(false); // สั่งปิดแอนิเมชันก่อน
+    setTimeout(() => { // รอแอนิเมชันเล่นจบ 300ms ค่อยลบ DOM ทิ้ง
+      setShowAnnouncement(false);
+      setHasSeenAnnouncement(true);
+      if (dontShowToday) {
+        try {
+          localStorage.setItem('hideAnnouncementDate', new Date().toDateString());
+        } catch (e) {
+          console.warn('Cannot save to LocalStorage');
+        }
       }
-    }
+    }, 300);
   };
 
   // --- HELPER FUNCTIONS ---
@@ -1015,11 +1057,23 @@ function App() {
   const cartStats = cart.reduce((acc, item) => {
     acc.cartSubtotal += item.product.price * item.qty;
     acc.cartCarryingFee += (item.product.carryingFee || 0) * item.qty;
-    acc.cartShippingFee += (item.product.shippingFee || 0) * item.qty;
+    // นำการบวก product.shippingFee รายชิ้นออก เพื่อใช้ Global Settings แทน
     acc.cartItemCount += item.qty;
     return acc;
-  }, { cartSubtotal: 0, cartCarryingFee: 0, cartShippingFee: 0, cartItemCount: 0 });
-  const cartTotal = cartStats.cartSubtotal + cartStats.cartCarryingFee + cartStats.cartShippingFee;
+  }, { cartSubtotal: 0, cartCarryingFee: 0, cartItemCount: 0 });
+
+  // --- คำนวณค่าจัดส่งแบบใหม่ (Global Settings) ---
+  const globalBaseShipping = Number(sysSettings.baseShippingFee) || 0;
+  const globalAddShipping = Number(sysSettings.addShippingFee) || 0;
+  const globalPickupFee = Number(sysSettings.pickupFee) || 0;
+
+  // ค่าจัดส่งเริ่มต้น (สำหรับแสดงในตะกร้า)
+  const defaultShippingFee = cartStats.cartItemCount > 0 ? globalBaseShipping + ((cartStats.cartItemCount - 1) * globalAddShipping) : 0;
+  // ค่าจัดส่งจริง (ในหน้า Checkout) อิงตามวิธีที่ลูกค้าเลือก
+  const checkoutShippingFee = checkoutForm.deliveryMethod === 'pickup' ? globalPickupFee : defaultShippingFee;
+
+  const cartTotal = cartStats.cartSubtotal + cartStats.cartCarryingFee + defaultShippingFee;
+  const cartTotalCheckout = cartStats.cartSubtotal + cartStats.cartCarryingFee + checkoutShippingFee;
 
   let baseDashOrders = orders;
   if (dashSearchQuery.trim()) {
@@ -1406,7 +1460,8 @@ function App() {
           qty: 1,
           variation: variationName
         });
-        prev.shippingFee = Number(prev.shippingFee || 0) + Number(product.shippingFee || 0);
+        // ไม่ทำการบวกค่าส่ง Auto จากข้อมูลตัวสินค้าแล้ว เพราะเปลี่ยนไปใช้ Global Settings
+        // ให้ Admin กรอกช่องค่าส่งในหน้า Draft เอง
       }
       return { ...prev, items: newItems };
     });
@@ -1654,7 +1709,7 @@ function App() {
         id: item.product.id, name: item.product.name, variation: item.variation,
         price: item.product.price, carryingFee: item.product.carryingFee || 0, qty: item.qty
       })),
-      shippingFee: cartStats.cartShippingFee, discount: 0, total: cartTotal, status: 'waiting_payment', actualExpenses: [],
+      shippingFee: checkoutShippingFee, discount: 0, total: cartTotalCheckout, status: 'waiting_payment', actualExpenses: [],
       createdBy: isAdminOrStaff ? currentUser?.name : undefined
     };
 
@@ -3596,7 +3651,7 @@ function App() {
                   {sysSettings.isAnnouncementActive && (
                     <div className="mt-2">
                       <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">ข้อความบนป๊อปอัพ (รองรับการขึ้นบรรทัดใหม่)</label>
-                      <textarea rows={3} value={typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')} onChange={(e) => setSysSettings({...sysSettings, announcementText: e.target.value})} placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." className="w-full p-4 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-sm resize-none"></textarea>
+                      <TextAreaScrollable rows={4} value={typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')} onChange={(e) => setSysSettings({...sysSettings, announcementText: e.target.value})} placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." className="w-full p-4 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-sm resize-none overflow-y-auto" />
                     </div>
                   )}
                 </div>
@@ -3616,6 +3671,61 @@ function App() {
                       <input type="text" value={typeof sysSettings.capsuleText === 'object' ? JSON.stringify(sysSettings.capsuleText) : String(sysSettings.capsuleText || '')} onChange={(e) => setSysSettings({...sysSettings, capsuleText: e.target.value})} placeholder="เช่น โปรโมชั่นพิเศษ ส่งฟรีเมื่อซื้อครบ 500 บาท!" className="w-full p-4 bg-white border border-sky-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all shadow-sm" />
                     </div>
                   )}
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-100 mt-2">
+                  <button onClick={handleSaveSettings} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all">
+                    <Save className="w-4 h-4" /> บันทึกการตั้งค่า
+                  </button>
+                </div>
+              </div>
+
+              {/* SHIPPING SETTINGS CARD */}
+              <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white space-y-5 relative overflow-hidden">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="p-2 bg-orange-50 text-orange-600 rounded-xl"><Truck className="w-5 h-5"/></div>
+                  <h3 className="text-lg font-black text-slate-800 tracking-wide">ตั้งค่าการจัดส่งและการรับสินค้า</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-orange-50/30 p-5 rounded-2xl border border-orange-100">
+                   <div className="space-y-4">
+                      <h4 className="font-bold text-orange-700 flex items-center gap-2 border-b border-orange-200/50 pb-2"><Truck className="w-4 h-4"/> จัดส่งโดยขนส่ง (พัสดุ)</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-orange-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">ค่าจัดส่งชิ้นแรก</label>
+                          <div className="relative">
+                            <input type="number" min="0" value={sysSettings.baseShippingFee} onChange={(e) => setSysSettings({...sysSettings, baseShippingFee: e.target.value})} className="w-full pl-3 pr-8 py-2.5 bg-white border border-orange-200 rounded-xl text-slate-800 font-bold text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm" />
+                            <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">฿</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-orange-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">ชิ้นต่อไปบวกเพิ่ม</label>
+                          <div className="relative">
+                            <input type="number" min="0" value={sysSettings.addShippingFee} onChange={(e) => setSysSettings({...sysSettings, addShippingFee: e.target.value})} className="w-full pl-3 pr-8 py-2.5 bg-white border border-orange-200 rounded-xl text-slate-800 font-bold text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm" />
+                            <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">฿</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-orange-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">รายละเอียด/หมายเหตุการจัดส่ง</label>
+                        <TextAreaScrollable rows={3} value={sysSettings.shippingNote || ''} onChange={(e) => setSysSettings({...sysSettings, shippingNote: e.target.value})} placeholder="เช่น จัดส่งผ่าน Kerry Express ระยะเวลา 1-2 วัน" className="w-full p-3 bg-white border border-orange-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm resize-none overflow-y-auto" />
+                      </div>
+                   </div>
+
+                   <div className="space-y-4">
+                      <h4 className="font-bold text-emerald-700 flex items-center gap-2 border-b border-emerald-200/50 pb-2"><MapPin className="w-4 h-4"/> นัดรับด้วยตนเอง</h4>
+                      <div>
+                        <label className="block text-emerald-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">ค่าธรรมเนียมนัดรับ (ใส่ 0 คือฟรี)</label>
+                        <div className="relative w-1/2">
+                          <input type="number" min="0" value={sysSettings.pickupFee} onChange={(e) => setSysSettings({...sysSettings, pickupFee: e.target.value})} className="w-full pl-3 pr-8 py-2.5 bg-white border border-emerald-200 rounded-xl text-slate-800 font-bold text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm" />
+                          <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">฿</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-emerald-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">รายละเอียดสถานที่นัดรับ</label>
+                        <TextAreaScrollable rows={3} value={sysSettings.pickupNote || ''} onChange={(e) => setSysSettings({...sysSettings, pickupNote: e.target.value})} placeholder="เช่น นัดรับได้ที่หน้าหมู่บ้าน..." className="w-full p-3 bg-white border border-emerald-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm resize-none overflow-y-auto" />
+                      </div>
+                   </div>
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-slate-100 mt-2">
@@ -3971,11 +4081,15 @@ function App() {
       {/* --- ANNOUNCEMENT POP-UP (GLOBAL LEVEL) --- */}
       {showAnnouncement && (
         <div 
-          className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300"
+          className={`fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 transition-opacity duration-300 ease-out transform-gpu ${isAnnouncementVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+          style={{ WebkitBackfaceVisibility: 'hidden', WebkitPerspective: 1000 }}
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >
-          <div className="bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+          <div 
+            className={`bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl overflow-hidden transform-gpu transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isAnnouncementVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+            style={{ WebkitBackfaceVisibility: 'hidden', WebkitPerspective: 1000, WebkitTransform: 'translate3d(0,0,0)' }}
+          >
             
             {/* Header */}
             <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-4 sm:p-5 flex items-center justify-between flex-shrink-0">
@@ -4013,27 +4127,22 @@ function App() {
 
       {/* --- MODALS --- */}
       {modal.isOpen && (
-        <div className={`fixed inset-0 bg-slate-900/40 backdrop-blur-[4px] z-[100] flex items-center justify-center p-3 sm:p-4 transition-all duration-300 ease-out ${isModalVisible ? 'opacity-100' : 'opacity-0'}`} onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
-          <datalist id="existing-user-ids">
-             {usersList.map(u => <option key={`mu-${u.id}`} value={u.id}>{u.name}</option>)}
-             {Array.from(new Set(orders.filter(o => o.userId).map(o => o.userId))).filter(id => !usersList.find(u => u.id === id)).map(id => {
-                const order = orders.find(o => o.userId === id);
-                return <option key={`ou-${id}`} value={id}>{order?.customer}</option>;
-             })}
-          </datalist>
-          <datalist id="existing-customer-names">
-             {usersList.map(u => <option key={`muc-${u.id}`} value={u.name} />)}
-             {Array.from(new Set(orders.map(o => o.customer))).filter(name => !usersList.find(u => u.name === name)).map((name, i) => (
-                <option key={`ouc-${i}`} value={name} />
-             ))}
-          </datalist>
-          <div className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform transition-all duration-300 ease-out ${isModalVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.95] opacity-0 translate-y-8'}
-              ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[92vh] md:max-h-[85vh] md:min-h-[500px]' : 
+        <div 
+          className={`fixed inset-0 bg-slate-900/40 backdrop-blur-[4px] z-[100] flex items-center justify-center p-3 sm:p-4 transition-opacity duration-300 ease-out transform-gpu ${isModalVisible ? 'opacity-100' : 'opacity-0'}`} 
+          style={{ WebkitBackfaceVisibility: 'hidden', WebkitPerspective: 1000 }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+        >
+          <div 
+            className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform-gpu transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isModalVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}
+              ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[90vh] md:max-h-[85vh] md:min-h-[500px]' : 
                 (modal.type === 'store_for_order' ? 'max-w-4xl max-h-[85vh] md:h-[600px]' :
                 (modal.type === 'edit_order' ? 'max-w-4xl max-h-[90vh]' :
                 (modal.type === 'cart' ? 'max-w-xl max-h-[90vh]' : 
                 ((modal.type === 'checkout' || modal.type === 'user_form') ? 'max-w-2xl max-h-[90vh]' : 'max-w-md max-h-[90vh]'))))} 
-            `} onClick={(e) => e.stopPropagation()}>
+            `} 
+            style={{ WebkitBackfaceVisibility: 'hidden', WebkitPerspective: 1000, WebkitTransform: 'translate3d(0,0,0)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* EDIT ORDER MODAL */}
             {modal.type === 'edit_order' && draftOrder && (
@@ -4277,7 +4386,7 @@ function App() {
 
             {/* STORE FOR ORDER MODAL */}
             {modal.type === 'store_for_order' && (
-              <div className="flex flex-col h-full bg-slate-50">
+              <div className="flex flex-col flex-1 min-h-0 bg-slate-50">
                 <div className="flex justify-between items-center p-5 border-b border-slate-200 bg-white">
                   <div className="flex items-center gap-3">
                     <button onClick={() => openModal('edit_order')} className="p-2 bg-slate-100 rounded-full"><ArrowLeft className="w-5 h-5"/></button>
@@ -4315,7 +4424,7 @@ function App() {
 
             {/* PRODUCT DETAILS (Shared) */}
             {(modal.type === 'product_details' || modal.type === 'product_details_for_order') && (
-              <div className="flex flex-col w-full h-full flex-1 min-h-0 bg-white relative overflow-hidden">
+              <div className="flex flex-col flex-1 min-h-0 bg-white relative">
                 
                 {/* Scrollable Content Area */}
                 <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-y-auto md:overflow-hidden">
@@ -4391,13 +4500,18 @@ function App() {
                                const isOutOfStock = v.stock <= 0 && activeTab === 'store';
                                return (
                                  <button key={v.name} onClick={() => setSelectedVariation(v.name)} disabled={isOutOfStock}
-                                   className={`relative flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-xl border-2 font-bold transition-all duration-200 aspect-square
+                                   className={`relative flex flex-col items-center justify-center p-1 sm:p-1.5 rounded-xl border-2 font-bold transition-all duration-200 aspect-square overflow-hidden
                                      ${isSelected ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm scale-[1.02]' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'}
                                      ${isOutOfStock ? 'opacity-50 cursor-not-allowed grayscale' : 'active:scale-95'}
                                    `}>
-                                   {isSelected && <div className="absolute top-0 right-0 w-0 h-0 border-t-[14px] sm:border-t-[16px] border-r-[14px] sm:border-r-[16px] border-t-blue-500 border-r-transparent"><Check className="absolute -top-[14px] sm:-top-[16px] right-[1px] w-2.5 h-2.5 sm:w-3 sm:h-3 text-white stroke-[3]"/></div>}
-                                   <span className="text-[9px] sm:text-[11px] z-10 w-full text-center px-0.5 leading-tight break-words line-clamp-2">{v.name}</span>
-                                   <span className={`text-[8px] sm:text-[9px] mt-0.5 sm:mt-1 z-10 font-bold px-1 sm:px-1.5 py-0.5 rounded-sm whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500')}`}>
+                                   {isSelected && (
+                                     <>
+                                       <div className="absolute -top-3.5 -right-3.5 w-7 h-7 sm:-top-4 sm:-right-4 sm:w-8 sm:h-8 bg-blue-500 rotate-45 z-0 transition-transform"></div>
+                                       <Check className="absolute top-0.5 right-0.5 sm:top-[2px] sm:right-[2px] w-2.5 h-2.5 sm:w-3 sm:h-3 text-white z-10" strokeWidth={4}/>
+                                     </>
+                                   )}
+                                   <span className="text-xs sm:text-sm z-10 w-full text-center px-0.5 leading-tight break-words line-clamp-2">{v.name}</span>
+                                   <span className={`text-[9px] sm:text-[10px] mt-0.5 sm:mt-1 z-10 font-bold px-1.5 py-0.5 rounded-md whitespace-nowrap transition-colors ${isOutOfStock ? 'bg-rose-100 text-rose-600' : (isSelected ? 'bg-blue-200 text-blue-700' : 'bg-slate-100 text-slate-500')}`}>
                                      {isOutOfStock ? 'หมด' : v.stock}
                                    </span>
                                  </button>
@@ -4427,31 +4541,31 @@ function App() {
 
                 </div>
 
-                {/* BOTTOM ACTION BAR (Compact) */}
-                <div className="w-full bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] z-20 p-2.5 sm:p-4 flex-shrink-0">
-                  <div className="flex flex-row justify-between items-center gap-3 sm:gap-4 max-w-5xl mx-auto w-full">
+                {/* BOTTOM ACTION BAR */}
+                <div className="w-full bg-slate-50 sm:bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] z-20 p-4 sm:p-4 flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4 max-w-5xl mx-auto w-full">
                      
-                     {/* Compact Pricing Summary */}
-                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-0 sm:gap-4 pl-1 sm:pl-2">
-                       <span className="text-[9px] sm:text-[11px] text-slate-400 uppercase font-black tracking-wider">รวมต่อชิ้น</span>
-                       <span className="text-lg sm:text-2xl font-black text-blue-600 tracking-tight leading-none drop-shadow-sm">฿{(Number(modal.data?.price || 0) + Number(modal.data?.carryingFee || 0) + Number(modal.data?.shippingFee || 0)).toLocaleString()}</span>
+                     {/* Pricing Summary */}
+                     <div className="flex justify-between items-end sm:items-center sm:gap-4 pl-1 sm:pl-2 mb-1 sm:mb-0">
+                       <span className="text-sm font-bold text-slate-800 sm:text-[11px] sm:text-slate-400 sm:uppercase sm:font-black sm:tracking-wider">รวมต่อชิ้น</span>
+                       <span className="text-2xl font-black text-blue-600 tracking-tight leading-none drop-shadow-sm">฿{(Number(modal.data?.price || 0) + Number(modal.data?.carryingFee || 0) + Number(modal.data?.shippingFee || 0)).toLocaleString()}</span>
                      </div>
 
                      {/* Action Button */}
-                     <div className="flex-1 sm:flex-none flex justify-end">
+                     <div className="w-full sm:w-auto flex justify-end">
                       {modal.type === 'product_details_for_order' ? (
                         <button onClick={() => {
                           if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้า', 'warning'); return; }
                           addProductToDraftOrder(modal.data, selectedVariation);
-                        }} className="w-full sm:w-[220px] bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(147,51,234,0.3)] transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><Plus className="w-4 h-4 sm:w-5 sm:h-5" /> เพิ่มลงออเดอร์</button>
+                        }} className="w-full sm:w-[220px] bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-3.5 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(147,51,234,0.3)] transition-all flex justify-center items-center gap-2 text-sm sm:text-sm whitespace-nowrap">เพิ่มลงออเดอร์ <Plus className="w-5 h-5 flex-shrink-0" /></button>
                       ) : activeTab === 'products' ? (
-                        <button onClick={() => openModal('product_form', modal.data)} className="w-full sm:w-[220px] bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><Edit className="w-4 h-4 sm:w-5 sm:h-5" /> แก้ไขสินค้า</button>
+                        <button onClick={() => openModal('product_form', modal.data)} className="w-full sm:w-[220px] bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-3.5 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-2 text-sm sm:text-sm whitespace-nowrap">แก้ไขสินค้า <Edit className="w-5 h-5 flex-shrink-0" /></button>
                       ) : (
                         <button onClick={() => {
                           if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้าก่อน', 'warning'); return; }
                           addToCart(modal.data, selectedVariation); closeModal();
                         }} disabled={modal.data?.status === 'sold_out' || modal.data?.stock <= 0}
-                        className="w-full sm:w-[220px] bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 active:scale-[0.98] disabled:active:scale-100 text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(14,165,233,0.3)] disabled:shadow-none transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> {modal.data?.status === 'sold_out' || modal.data?.stock <= 0 ? 'หมด' : 'ใส่ตะกร้า'}</button>
+                        className="w-full sm:w-[220px] bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 active:scale-[0.98] disabled:active:scale-100 text-white py-3.5 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(14,165,233,0.3)] disabled:shadow-none transition-all flex justify-center items-center gap-2 text-sm sm:text-sm whitespace-nowrap">{modal.data?.status === 'sold_out' || modal.data?.stock <= 0 ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'} <ShoppingCart className="w-5 h-5 flex-shrink-0" /></button>
                       )}
                      </div>
                   </div>
@@ -4462,7 +4576,7 @@ function App() {
 
             {/* PRODUCT FORM MODAL */}
             {modal.type === 'product_form' && (
-              <form className="flex flex-col w-full max-h-[92vh] overflow-hidden bg-slate-50" onSubmit={handleProductSubmit}>
+              <form className="flex flex-col flex-1 min-h-0 bg-slate-50" onSubmit={handleProductSubmit}>
                 {/* Header fixed at top */}
                 <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-200 bg-white flex-shrink-0 z-10 shadow-sm">
                   <h3 className="text-xl font-black text-slate-800">{modal.data ? 'แก้ไขสินค้า / EDIT' : 'เพิ่มสินค้าใหม่ / NEW ITEM'}</h3>
@@ -4610,7 +4724,7 @@ function App() {
 
             {/* CART & CHECKOUT */}
             {modal.type === 'cart' && (
-              <div className="flex flex-col h-full max-h-[85vh]">
+              <div className="flex flex-col flex-1 min-h-0">
                 <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50 flex-shrink-0">
                   <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><ShoppingCart className="w-6 h-6 text-sky-500" /> ตะกร้าสินค้า</h3>
                   <button onClick={closeModal} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
@@ -4631,7 +4745,6 @@ function App() {
                               <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-xs mt-1.5">
                                 {item.variation && <span className="text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap">แบบ: {item.variation}</span>}
                                 {(item.product.carryingFee > 0) && <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1 whitespace-nowrap"><ShoppingBag className="w-3 h-3"/> หิ้ว +{item.product.carryingFee.toLocaleString()}</span>}
-                                {(item.product.shippingFee > 0) && <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1 whitespace-nowrap"><Truck className="w-3 h-3"/> ส่ง +{item.product.shippingFee.toLocaleString()}</span>}
                               </div>
                             </div>
                             <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
@@ -4656,7 +4769,7 @@ function App() {
                     <div className="space-y-2 mb-4 text-sm font-bold text-slate-600">
                       <div className="flex justify-between"><span>ค่าสินค้า:</span> <span>฿{cartStats.cartSubtotal.toLocaleString()}</span></div>
                       {cartStats.cartCarryingFee > 0 && <div className="flex justify-between"><span className="flex items-center gap-1.5"><ShoppingBag className="w-4 h-4 text-emerald-500"/> ค่าหิ้วรวม:</span> <span className="text-emerald-600">฿{cartStats.cartCarryingFee.toLocaleString()}</span></div>}
-                      {cartStats.cartShippingFee > 0 && <div className="flex justify-between"><span className="flex items-center gap-1.5"><Truck className="w-4 h-4 text-orange-500"/> ค่าจัดส่งรวม:</span> <span className="text-orange-600">฿{cartStats.cartShippingFee.toLocaleString()}</span></div>}
+                      {defaultShippingFee >= 0 && <div className="flex justify-between"><span className="flex items-center gap-1.5"><Truck className="w-4 h-4 text-orange-500"/> ค่าจัดส่ง (เริ่มต้น):</span> <span className={defaultShippingFee === 0 ? "text-emerald-600" : "text-orange-600"}>{defaultShippingFee === 0 ? "ฟรี" : `฿${defaultShippingFee.toLocaleString()}`}</span></div>}
                     </div>
                     <div className="flex justify-between items-end mb-4 pt-3 border-t border-slate-200">
                       <span className="text-slate-800 font-bold">ยอดรวมสุทธิ</span><span className="text-2xl font-black text-sky-600">฿{cartTotal.toLocaleString()}</span>
@@ -4669,7 +4782,7 @@ function App() {
 
             {/* CHECKOUT */}
             {modal.type === 'checkout' && (
-              <form className="flex flex-col h-full max-h-[90vh]" onSubmit={handleCheckoutSubmit}>
+              <form className="flex flex-col flex-1 min-h-0" onSubmit={handleCheckoutSubmit}>
                 <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-sky-50 flex-shrink-0">
                   <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><CreditCard className="w-6 h-6 text-sky-600" /> ข้อมูลจัดส่ง</h3>
                   <button type="button" onClick={() => openModal('cart')} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
@@ -4688,6 +4801,7 @@ function App() {
                        </select>
                     </div>
                   </div>
+                  
                   <div><label className="text-xs font-bold text-slate-600 mb-1 block">ที่อยู่ / สถานที่นัดรับ</label><textarea name="address" value={checkoutForm.address} onChange={(e) => handleCheckoutFormChange('address', e.target.value)} required className="w-full p-3 bg-slate-50 border rounded-xl resize-none"></textarea></div>
 
                   {/* Shipping & Total Summary inside Checkout */}
@@ -4698,13 +4812,28 @@ function App() {
                      </div>
                      <div className="flex justify-between text-sm mb-3 text-slate-600 font-bold">
                        <span>ค่าจัดส่ง ({checkoutForm.deliveryMethod === 'shipping' ? 'จัดส่งพัสดุ' : 'นัดรับ'})</span>
-                       <span className={checkoutForm.deliveryMethod === 'pickup' ? 'text-emerald-600' : 'text-orange-600'}>
-                         {checkoutForm.deliveryMethod === 'pickup' ? 'ฟรี' : `+฿${cartStats.cartShippingFee.toLocaleString()}`}
+                       <span className={checkoutShippingFee === 0 ? 'text-emerald-600' : 'text-orange-600'}>
+                         {checkoutShippingFee === 0 ? 'ฟรี' : `+฿${checkoutShippingFee.toLocaleString()}`}
                        </span>
                      </div>
+
+                     {/* ย้ายหมายเหตุมาแสดงต่อจากบรรทัดค่าจัดส่ง เพื่อให้สอดคล้องกัน */}
+                     {checkoutForm.deliveryMethod === 'shipping' && sysSettings.shippingNote && (
+                        <div className="mb-3 p-3 bg-orange-50 border border-orange-100/50 rounded-lg text-xs text-orange-700 leading-relaxed whitespace-pre-wrap animate-in fade-in shadow-sm">
+                          <span className="font-bold flex items-center gap-1.5 mb-1"><Truck className="w-3.5 h-3.5"/> หมายเหตุการจัดส่ง:</span>
+                          {sysSettings.shippingNote}
+                        </div>
+                     )}
+                     {checkoutForm.deliveryMethod === 'pickup' && sysSettings.pickupNote && (
+                        <div className="mb-3 p-3 bg-emerald-50 border border-emerald-100/50 rounded-lg text-xs text-emerald-700 leading-relaxed whitespace-pre-wrap animate-in fade-in shadow-sm">
+                          <span className="font-bold flex items-center gap-1.5 mb-1"><MapPin className="w-3.5 h-3.5"/> หมายเหตุสถานที่นัดรับ:</span>
+                          {sysSettings.pickupNote}
+                        </div>
+                     )}
+
                      <div className="flex justify-between items-end font-black text-lg text-sky-600 border-t border-slate-200 pt-3 mt-1">
                        <span className="text-xs text-slate-500 uppercase tracking-widest">ยอดรวมสุทธิ</span>
-                       <span className="text-2xl">฿{(cartStats.cartSubtotal + cartStats.cartCarryingFee + (checkoutForm.deliveryMethod === 'shipping' ? cartStats.cartShippingFee : 0)).toLocaleString()}</span>
+                       <span className="text-2xl">฿{cartTotalCheckout.toLocaleString()}</span>
                      </div>
                   </div>
                 </div>
@@ -4717,7 +4846,7 @@ function App() {
 
             {/* USER FORM MODAL */}
             {modal.type === 'user_form' && (
-              <form className="flex flex-col h-full max-h-[90vh]" onSubmit={handleSaveUser}>
+              <form className="flex flex-col flex-1 min-h-0" onSubmit={handleSaveUser}>
                 <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50 flex-shrink-0">
                   <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Users className="w-6 h-6 text-amber-500" /> {modal.data ? 'ข้อมูลและการจัดการสิทธิ์' : 'เพิ่มผู้ใช้ใหม่'}</h3>
                   <button type="button" onClick={closeModal} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
@@ -4789,6 +4918,21 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* --- DATALISTS (Moved outside modals to prevent layout bugs) --- */}
+      <datalist id="existing-user-ids">
+         {usersList.map(u => <option key={`mu-${u.id}`} value={u.id}>{u.name}</option>)}
+         {Array.from(new Set(orders.filter(o => o.userId).map(o => o.userId))).filter(id => !usersList.find(u => u.id === id)).map(id => {
+            const order = orders.find(o => o.userId === id);
+            return <option key={`ou-${id}`} value={id}>{order?.customer}</option>;
+         })}
+      </datalist>
+      <datalist id="existing-customer-names">
+         {usersList.map(u => <option key={`muc-${u.id}`} value={u.name} />)}
+         {Array.from(new Set(orders.map(o => o.customer))).filter(name => !usersList.find(u => u.name === name)).map((name, i) => (
+            <option key={`ouc-${i}`} value={name} />
+         ))}
+      </datalist>
 
       {/* --- IMAGE ZOOM FULLSCREEN OVERLAY --- */}
       {zoomedImage && (
