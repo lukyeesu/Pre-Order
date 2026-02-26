@@ -915,6 +915,7 @@ function App() {
     setLoginUsername('');
     setLoginPassword('');
     localStorage.removeItem('savedUserId'); // เคลียร์ข้อมูลการจำเข้าระบบ
+    sessionStorage.removeItem('hasSeenAnnouncement'); // เคลียร์ความจำป๊อปอัพ เพื่อให้เข้าสู่ระบบครั้งหน้ามันเด้งเตือนได้ใหม่
     handleTabSwitch('store');
     setIsUserMenuOpen(false);
   };
