@@ -131,6 +131,13 @@ export interface SystemSettings {
   telegramChatId?: string;   // Add this
   announcementText?: string;               // Add this
   isAnnouncementActive?: boolean | string; // Add this
+  isCapsuleActive?: boolean | string;      // Add this
+  capsuleText?: string;                    // Add this
+  shippingNote?: string;                   // Add this
+  pickupNote?: string;                     // Add this
+  baseShippingFee?: number | string;       // Add this (ค่าจัดส่งชิ้นแรก)
+  addShippingFee?: number | string;        // Add this (ค่าจัดส่งชิ้นต่อไป)
+  pickupFee?: number | string;             // Add this (ค่าธรรมเนียมการนัดรับ)
 }
 
 // --- CONFIGURATION ---
@@ -406,13 +413,25 @@ function App() {
     telegramBotToken: '',
     telegramChatId: '',
     announcementText: '',
-    isAnnouncementActive: false
+    isAnnouncementActive: false,
+    isCapsuleActive: false,
+    capsuleText: '',
+    shippingNote: '',
+    pickupNote: '',
+    baseShippingFee: 50,
+    addShippingFee: 10,
+    pickupFee: 0
   });
 
   // Announcement States
   const [showAnnouncement, setShowAnnouncement] = useState<boolean>(false);
   const [hasSeenAnnouncement, setHasSeenAnnouncement] = useState<boolean>(false);
   const [dontShowToday, setDontShowToday] = useState<boolean>(false);
+
+  // Capsule Overflow States
+  const [isCapsuleOverflowing, setIsCapsuleOverflowing] = useState<boolean>(false);
+  const capsuleContainerRef = useRef<HTMLDivElement>(null);
+  const capsuleTextRef = useRef<HTMLDivElement>(null);
   
   // Core States
   const [products, setProducts] = useState<Product[]>([]);
@@ -1011,11 +1030,23 @@ function App() {
   const cartStats = cart.reduce((acc, item) => {
     acc.cartSubtotal += item.product.price * item.qty;
     acc.cartCarryingFee += (item.product.carryingFee || 0) * item.qty;
-    acc.cartShippingFee += (item.product.shippingFee || 0) * item.qty;
+    // นำการบวก product.shippingFee รายชิ้นออก เพื่อใช้ Global Settings แทน
     acc.cartItemCount += item.qty;
     return acc;
-  }, { cartSubtotal: 0, cartCarryingFee: 0, cartShippingFee: 0, cartItemCount: 0 });
-  const cartTotal = cartStats.cartSubtotal + cartStats.cartCarryingFee + cartStats.cartShippingFee;
+  }, { cartSubtotal: 0, cartCarryingFee: 0, cartItemCount: 0 });
+
+  // --- คำนวณค่าจัดส่งแบบใหม่ (Global Settings) ---
+  const globalBaseShipping = Number(sysSettings.baseShippingFee) || 0;
+  const globalAddShipping = Number(sysSettings.addShippingFee) || 0;
+  const globalPickupFee = Number(sysSettings.pickupFee) || 0;
+
+  // ค่าจัดส่งเริ่มต้น (สำหรับแสดงในตะกร้า)
+  const defaultShippingFee = cartStats.cartItemCount > 0 ? globalBaseShipping + ((cartStats.cartItemCount - 1) * globalAddShipping) : 0;
+  // ค่าจัดส่งจริง (ในหน้า Checkout) อิงตามวิธีที่ลูกค้าเลือก
+  const checkoutShippingFee = checkoutForm.deliveryMethod === 'pickup' ? globalPickupFee : defaultShippingFee;
+
+  const cartTotal = cartStats.cartSubtotal + cartStats.cartCarryingFee + defaultShippingFee;
+  const cartTotalCheckout = cartStats.cartSubtotal + cartStats.cartCarryingFee + checkoutShippingFee;
 
   let baseDashOrders = orders;
   if (dashSearchQuery.trim()) {
@@ -1402,7 +1433,8 @@ function App() {
           qty: 1,
           variation: variationName
         });
-        prev.shippingFee = Number(prev.shippingFee || 0) + Number(product.shippingFee || 0);
+        // ไม่ทำการบวกค่าส่ง Auto จากข้อมูลตัวสินค้าแล้ว เพราะเปลี่ยนไปใช้ Global Settings
+        // ให้ Admin กรอกช่องค่าส่งในหน้า Draft เอง
       }
       return { ...prev, items: newItems };
     });
@@ -1650,7 +1682,7 @@ function App() {
         id: item.product.id, name: item.product.name, variation: item.variation,
         price: item.product.price, carryingFee: item.product.carryingFee || 0, qty: item.qty
       })),
-      shippingFee: cartStats.cartShippingFee, discount: 0, total: cartTotal, status: 'waiting_payment', actualExpenses: [],
+      shippingFee: checkoutShippingFee, discount: 0, total: cartTotalCheckout, status: 'waiting_payment', actualExpenses: [],
       createdBy: isAdminOrStaff ? currentUser?.name : undefined
     };
 
@@ -3026,64 +3058,69 @@ function App() {
         {activeTab === 'store' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
             
-            {/* ANNOUNCEMENT POP-UP */}
-            {showAnnouncement && (
-              <div 
-                className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300"
-                onWheel={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-              >
-                <div className="bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
-                  
-                  {/* Header */}
-                  <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-4 sm:p-5 flex items-center justify-between flex-shrink-0">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
-                        <Megaphone className="w-6 h-6 text-white animate-pulse" />
-                      </div>
-                      <h3 className="text-lg sm:text-xl font-bold text-white tracking-wide">ประกาศจากทางร้าน</h3>
-                    </div>
-                    <button onClick={closeAnnouncement} className="text-white/80 hover:text-white bg-black/10 hover:bg-black/20 p-2 rounded-full transition-colors"><X className="w-5 h-5"/></button>
-                  </div>
-                  
-                  {/* Scrollable Content (ใช้ TableScrollWrapper เพื่อดักการเลื่อนพื้นหลัง) */}
-                  <TableScrollWrapper className="p-5 sm:p-8 overflow-y-auto flex-1">
-                    <div className="text-slate-700 whitespace-pre-wrap leading-relaxed font-medium text-sm sm:text-base">
-                      {typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')}
-                    </div>
-                  </TableScrollWrapper>
-                  
-                  {/* Footer Action */}
-                  <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
-                    <label className="flex items-center justify-center gap-2 cursor-pointer group">
-                      <div className="relative flex items-center justify-center">
-                        <input type="checkbox" checked={dontShowToday} onChange={(e) => setDontShowToday(e.target.checked)} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-md checked:bg-sky-500 checked:border-sky-500 transition-colors cursor-pointer" />
-                        <Check className="w-3.5 h-3.5 text-white absolute opacity-0 peer-checked:opacity-100 pointer-events-none" strokeWidth={3} />
-                      </div>
-                      <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">วันนี้ไม่ต้องแสดงอีก</span>
-                    </label>
-                    <button onClick={closeAnnouncement} className="w-full sm:w-auto px-8 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl transition-colors shadow-[0_4px_15px_rgba(14,165,233,0.3)]">รับทราบ</button>
-                  </div>
+            <div className="sticky top-0 z-30 flex flex-col w-full bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+              {/* Header Main */}
+              <div className="px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-3xl font-bold text-slate-800 tracking-wide flex items-center gap-3">
+                    <Store className="w-8 h-8 text-sky-500" /> หน้าร้าน 
+                    <span className="text-sky-500/40 text-2xl">/ STOREFRONT</span>
+                  </h2>
+                  <p className="text-slate-500 mt-1 font-medium text-sm">เลือกซื้อสินค้าจาก {sysSettings.storeName}</p>
+                </div>
+                <div className="w-full md:w-72 relative md:mr-40 lg:mr-48 xl:mr-56">
+                  <input type="text" placeholder="ค้นหาสินค้า..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20 shadow-sm transition-all" />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                </div>
+              </div>
+            </div>
 
+            {/* CAPSULE ANNOUNCEMENT (ใต้ขอบ Header) */}
+            {sysSettings.isCapsuleActive && sysSettings.capsuleText && (
+              <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-5 pb-2 w-full animate-in fade-in slide-in-from-top-4 duration-500">
+                <style>{`
+                  @keyframes scroll-right-to-left {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-100%); }
+                  }
+                  .animate-capsule-marquee {
+                    display: inline-block;
+                    padding-left: 100%;
+                    animation-name: scroll-right-to-left;
+                    animation-timing-function: linear;
+                    animation-iteration-count: infinite;
+                    will-change: transform;
+                  }
+                  .animate-capsule-marquee:hover {
+                    animation-play-state: paused;
+                  }
+                  .capsule-mask {
+                    -webkit-mask-image: linear-gradient(to right, transparent, black 15px, black calc(100% - 15px), transparent);
+                    mask-image: linear-gradient(to right, transparent, black 15px, black calc(100% - 15px), transparent);
+                  }
+                `}</style>
+                <div className="max-w-7xl mx-auto bg-white rounded-full shadow-[0_4px_15px_rgba(14,165,233,0.1)] border border-sky-100 px-5 sm:px-6 py-2.5 flex items-center overflow-hidden w-full transition-transform">
+                  <span className="text-sky-500 font-black text-sm sm:text-base whitespace-nowrap flex-shrink-0 pr-2 sm:pr-3 tracking-wide bg-white z-10 relative">
+                    📢 ประกาศ:
+                  </span>
+                  <div className="capsule-mask flex-1 overflow-hidden relative flex items-center w-full">
+                    <div 
+                      className="animate-capsule-marquee text-sky-600 font-bold text-sm sm:text-base whitespace-nowrap"
+                      style={{ 
+                        /* สูตรความเร็วคงที่: เวลาพื้นฐานวิ่งผ่านจอ (12 วิ) + (จำนวนตัวอักษร * 0.12 วินาที)
+                          ทำให้ไม่ว่าข้อความจะสั้นหรือยาว สปีดการกวาดสายตาอ่านจะเท่ากันเสมอ
+                        */
+                        animationDuration: `${12 + ((typeof sysSettings.capsuleText === 'object' ? JSON.stringify(sysSettings.capsuleText) : String(sysSettings.capsuleText || '')).length * 0.12)}s` 
+                      }}
+                    >
+                      &nbsp;{typeof sysSettings.capsuleText === 'object' ? JSON.stringify(sysSettings.capsuleText) : String(sysSettings.capsuleText || '')}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <h2 className="text-3xl font-bold text-slate-800 tracking-wide flex items-center gap-3">
-                  <Store className="w-8 h-8 text-sky-500" /> หน้าร้าน 
-                  <span className="text-sky-500/40 text-2xl">/ STOREFRONT</span>
-                </h2>
-                <p className="text-slate-500 mt-1 font-medium text-sm">เลือกซื้อสินค้าจาก {sysSettings.storeName}</p>
-              </div>
-              <div className="w-full md:w-72 relative md:mr-40 lg:mr-48 xl:mr-56">
-                <input type="text" placeholder="ค้นหาสินค้า..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20 shadow-sm transition-all" />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-              </div>
-            </div>
-
-            <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-6">
+            <div className={`px-4 sm:px-6 lg:px-8 xl:px-10 ${sysSettings.isCapsuleActive && sysSettings.capsuleText ? 'pt-2' : 'pt-6'}`}>
               {filteredProducts.length === 0 ? (
                  <div className="text-center py-20 bg-white/50 rounded-3xl border border-dashed border-slate-200">
                    <Search className="w-12 h-12 mx-auto text-slate-300 mb-4" />
@@ -3571,23 +3608,97 @@ function App() {
               {/* ANNOUNCEMENT SETTINGS CARD */}
               <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white space-y-5 relative overflow-hidden">
                 <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                  <div className="p-2 bg-amber-50 text-amber-600 rounded-xl"><Megaphone className="w-5 h-5"/></div>
+                  <div className="p-2 bg-sky-50 text-sky-600 rounded-xl"><Megaphone className="w-5 h-5"/></div>
                   <h3 className="text-lg font-black text-slate-800 tracking-wide">ตั้งค่าประกาศหน้าร้าน</h3>
                 </div>
-                <div className="grid grid-cols-1 gap-5">
+                
+                {/* 1. Popup Announcement */}
+                <div className="grid grid-cols-1 gap-4 bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
                   <div className="flex items-center gap-3">
                      <label className="relative inline-flex items-center cursor-pointer">
                        <input type="checkbox" checked={!!sysSettings.isAnnouncementActive} onChange={(e) => setSysSettings({...sysSettings, isAnnouncementActive: e.target.checked})} className="sr-only peer" />
                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                       <span className="ml-3 text-sm font-bold text-slate-700">เปิดใช้งานป๊อปอัพประกาศ</span>
+                       <span className="ml-3 text-sm font-bold text-slate-700">เปิดใช้งานป๊อปอัพประกาศกลางจอ (Popup Modal)</span>
                      </label>
                   </div>
                   {sysSettings.isAnnouncementActive && (
-                    <div>
-                      <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">ข้อความประกาศ (รองรับการขึ้นบรรทัดใหม่)</label>
-                      <textarea rows={4} value={sysSettings.announcementText || ''} onChange={(e) => setSysSettings({...sysSettings, announcementText: e.target.value})} placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-inner resize-none"></textarea>
+                    <div className="mt-2">
+                      <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">ข้อความบนป๊อปอัพ (รองรับการขึ้นบรรทัดใหม่)</label>
+                      <textarea rows={3} value={typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')} onChange={(e) => setSysSettings({...sysSettings, announcementText: e.target.value})} placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." className="w-full p-4 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-sm resize-none"></textarea>
                     </div>
                   )}
+                </div>
+
+                {/* 2. Capsule Announcement */}
+                <div className="grid grid-cols-1 gap-4 bg-sky-50/40 p-5 rounded-2xl border border-sky-100 mt-2">
+                  <div className="flex items-center gap-3">
+                     <label className="relative inline-flex items-center cursor-pointer">
+                       <input type="checkbox" checked={!!sysSettings.isCapsuleActive} onChange={(e) => setSysSettings({...sysSettings, isCapsuleActive: e.target.checked})} className="sr-only peer" />
+                       <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500"></div>
+                       <span className="ml-3 text-sm font-bold text-slate-700">เปิดใช้งานป้ายประกาศแคปซูลใต้ Header (ข้อความวิ่ง)</span>
+                     </label>
+                  </div>
+                  {sysSettings.isCapsuleActive && (
+                    <div className="mt-2">
+                      <label className="block text-sky-700 font-mono text-xs uppercase tracking-widest mb-2 font-bold">ข้อความวิ่งในแคปซูล</label>
+                      <input type="text" value={typeof sysSettings.capsuleText === 'object' ? JSON.stringify(sysSettings.capsuleText) : String(sysSettings.capsuleText || '')} onChange={(e) => setSysSettings({...sysSettings, capsuleText: e.target.value})} placeholder="เช่น โปรโมชั่นพิเศษ ส่งฟรีเมื่อซื้อครบ 500 บาท!" className="w-full p-4 bg-white border border-sky-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all shadow-sm" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-100 mt-2">
+                  <button onClick={handleSaveSettings} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all">
+                    <Save className="w-4 h-4" /> บันทึกการตั้งค่า
+                  </button>
+                </div>
+              </div>
+
+              {/* SHIPPING SETTINGS CARD */}
+              <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white space-y-5 relative overflow-hidden">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="p-2 bg-orange-50 text-orange-600 rounded-xl"><Truck className="w-5 h-5"/></div>
+                  <h3 className="text-lg font-black text-slate-800 tracking-wide">ตั้งค่าการจัดส่งและการรับสินค้า</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-orange-50/30 p-5 rounded-2xl border border-orange-100">
+                   <div className="space-y-4">
+                      <h4 className="font-bold text-orange-700 flex items-center gap-2 border-b border-orange-200/50 pb-2"><Truck className="w-4 h-4"/> จัดส่งโดยขนส่ง (พัสดุ)</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-orange-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">ค่าจัดส่งชิ้นแรก</label>
+                          <div className="relative">
+                            <input type="number" min="0" value={sysSettings.baseShippingFee} onChange={(e) => setSysSettings({...sysSettings, baseShippingFee: e.target.value})} className="w-full pl-3 pr-8 py-2.5 bg-white border border-orange-200 rounded-xl text-slate-800 font-bold text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm" />
+                            <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">฿</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-orange-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">ชิ้นต่อไปบวกเพิ่ม</label>
+                          <div className="relative">
+                            <input type="number" min="0" value={sysSettings.addShippingFee} onChange={(e) => setSysSettings({...sysSettings, addShippingFee: e.target.value})} className="w-full pl-3 pr-8 py-2.5 bg-white border border-orange-200 rounded-xl text-slate-800 font-bold text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm" />
+                            <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">฿</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-orange-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">รายละเอียด/หมายเหตุการจัดส่ง</label>
+                        <textarea rows={2} value={sysSettings.shippingNote || ''} onChange={(e) => setSysSettings({...sysSettings, shippingNote: e.target.value})} placeholder="เช่น จัดส่งผ่าน Kerry Express ระยะเวลา 1-2 วัน" className="w-full p-3 bg-white border border-orange-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all shadow-sm resize-none"></textarea>
+                      </div>
+                   </div>
+
+                   <div className="space-y-4">
+                      <h4 className="font-bold text-emerald-700 flex items-center gap-2 border-b border-emerald-200/50 pb-2"><MapPin className="w-4 h-4"/> นัดรับด้วยตนเอง</h4>
+                      <div>
+                        <label className="block text-emerald-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">ค่าธรรมเนียมนัดรับ (ใส่ 0 คือฟรี)</label>
+                        <div className="relative w-1/2">
+                          <input type="number" min="0" value={sysSettings.pickupFee} onChange={(e) => setSysSettings({...sysSettings, pickupFee: e.target.value})} className="w-full pl-3 pr-8 py-2.5 bg-white border border-emerald-200 rounded-xl text-slate-800 font-bold text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm" />
+                          <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">฿</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-emerald-800 font-mono text-[10px] uppercase tracking-widest mb-1.5 font-bold">รายละเอียดสถานที่นัดรับ</label>
+                        <textarea rows={2} value={sysSettings.pickupNote || ''} onChange={(e) => setSysSettings({...sysSettings, pickupNote: e.target.value})} placeholder="เช่น นัดรับได้ที่หน้าหมู่บ้าน..." className="w-full p-3 bg-white border border-emerald-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm resize-none"></textarea>
+                      </div>
+                   </div>
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-slate-100 mt-2">
@@ -4399,31 +4510,31 @@ function App() {
 
                 </div>
 
-                {/* BOTTOM ACTION BAR (Compact) */}
-                <div className="w-full bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] z-20 p-2.5 sm:p-4 flex-shrink-0">
-                  <div className="flex flex-row justify-between items-center gap-3 sm:gap-4 max-w-5xl mx-auto w-full">
+                {/* BOTTOM ACTION BAR */}
+                <div className="w-full bg-slate-50 sm:bg-white border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] z-20 p-4 sm:p-4 flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 sm:gap-4 max-w-5xl mx-auto w-full">
                      
-                     {/* Compact Pricing Summary */}
-                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-0 sm:gap-4 pl-1 sm:pl-2">
-                       <span className="text-[9px] sm:text-[11px] text-slate-400 uppercase font-black tracking-wider">รวมต่อชิ้น</span>
-                       <span className="text-lg sm:text-2xl font-black text-blue-600 tracking-tight leading-none drop-shadow-sm">฿{(Number(modal.data?.price || 0) + Number(modal.data?.carryingFee || 0) + Number(modal.data?.shippingFee || 0)).toLocaleString()}</span>
+                     {/* Pricing Summary */}
+                     <div className="flex justify-between items-end sm:items-center sm:gap-4 pl-1 sm:pl-2 mb-1 sm:mb-0">
+                       <span className="text-sm font-bold text-slate-800 sm:text-[11px] sm:text-slate-400 sm:uppercase sm:font-black sm:tracking-wider">รวมต่อชิ้น</span>
+                       <span className="text-2xl font-black text-blue-600 tracking-tight leading-none drop-shadow-sm">฿{(Number(modal.data?.price || 0) + Number(modal.data?.carryingFee || 0) + Number(modal.data?.shippingFee || 0)).toLocaleString()}</span>
                      </div>
 
                      {/* Action Button */}
-                     <div className="flex-1 sm:flex-none flex justify-end">
+                     <div className="w-full sm:w-auto flex justify-end">
                       {modal.type === 'product_details_for_order' ? (
                         <button onClick={() => {
                           if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้า', 'warning'); return; }
                           addProductToDraftOrder(modal.data, selectedVariation);
-                        }} className="w-full sm:w-[220px] bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(147,51,234,0.3)] transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><Plus className="w-4 h-4 sm:w-5 sm:h-5" /> เพิ่มลงออเดอร์</button>
+                        }} className="w-full sm:w-[220px] bg-purple-600 hover:bg-purple-700 active:scale-[0.98] text-white py-3.5 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(147,51,234,0.3)] transition-all flex justify-center items-center gap-2 text-sm sm:text-sm whitespace-nowrap">เพิ่มลงออเดอร์ <Plus className="w-5 h-5 flex-shrink-0" /></button>
                       ) : activeTab === 'products' ? (
-                        <button onClick={() => openModal('product_form', modal.data)} className="w-full sm:w-[220px] bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><Edit className="w-4 h-4 sm:w-5 sm:h-5" /> แก้ไขสินค้า</button>
+                        <button onClick={() => openModal('product_form', modal.data)} className="w-full sm:w-[220px] bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white py-3.5 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-2 text-sm sm:text-sm whitespace-nowrap">แก้ไขสินค้า <Edit className="w-5 h-5 flex-shrink-0" /></button>
                       ) : (
                         <button onClick={() => {
                           if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้าก่อน', 'warning'); return; }
                           addToCart(modal.data, selectedVariation); closeModal();
                         }} disabled={modal.data?.status === 'sold_out' || modal.data?.stock <= 0}
-                        className="w-full sm:w-[220px] bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 active:scale-[0.98] disabled:active:scale-100 text-white py-2 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(14,165,233,0.3)] disabled:shadow-none transition-all flex justify-center items-center gap-1.5 text-xs sm:text-sm"><ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> {modal.data?.status === 'sold_out' || modal.data?.stock <= 0 ? 'หมด' : 'ใส่ตะกร้า'}</button>
+                        className="w-full sm:w-[220px] bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 active:scale-[0.98] disabled:active:scale-100 text-white py-3.5 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(14,165,233,0.3)] disabled:shadow-none transition-all flex justify-center items-center gap-2 text-sm sm:text-sm whitespace-nowrap">{modal.data?.status === 'sold_out' || modal.data?.stock <= 0 ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'} <ShoppingCart className="w-5 h-5 flex-shrink-0" /></button>
                       )}
                      </div>
                   </div>
@@ -4603,7 +4714,6 @@ function App() {
                               <div className="flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-xs mt-1.5">
                                 {item.variation && <span className="text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100 whitespace-nowrap">แบบ: {item.variation}</span>}
                                 {(item.product.carryingFee > 0) && <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 flex items-center gap-1 whitespace-nowrap"><ShoppingBag className="w-3 h-3"/> หิ้ว +{item.product.carryingFee.toLocaleString()}</span>}
-                                {(item.product.shippingFee > 0) && <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 flex items-center gap-1 whitespace-nowrap"><Truck className="w-3 h-3"/> ส่ง +{item.product.shippingFee.toLocaleString()}</span>}
                               </div>
                             </div>
                             <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
@@ -4628,7 +4738,7 @@ function App() {
                     <div className="space-y-2 mb-4 text-sm font-bold text-slate-600">
                       <div className="flex justify-between"><span>ค่าสินค้า:</span> <span>฿{cartStats.cartSubtotal.toLocaleString()}</span></div>
                       {cartStats.cartCarryingFee > 0 && <div className="flex justify-between"><span className="flex items-center gap-1.5"><ShoppingBag className="w-4 h-4 text-emerald-500"/> ค่าหิ้วรวม:</span> <span className="text-emerald-600">฿{cartStats.cartCarryingFee.toLocaleString()}</span></div>}
-                      {cartStats.cartShippingFee > 0 && <div className="flex justify-between"><span className="flex items-center gap-1.5"><Truck className="w-4 h-4 text-orange-500"/> ค่าจัดส่งรวม:</span> <span className="text-orange-600">฿{cartStats.cartShippingFee.toLocaleString()}</span></div>}
+                      {defaultShippingFee >= 0 && <div className="flex justify-between"><span className="flex items-center gap-1.5"><Truck className="w-4 h-4 text-orange-500"/> ค่าจัดส่ง (เริ่มต้น):</span> <span className={defaultShippingFee === 0 ? "text-emerald-600" : "text-orange-600"}>{defaultShippingFee === 0 ? "ฟรี" : `฿${defaultShippingFee.toLocaleString()}`}</span></div>}
                     </div>
                     <div className="flex justify-between items-end mb-4 pt-3 border-t border-slate-200">
                       <span className="text-slate-800 font-bold">ยอดรวมสุทธิ</span><span className="text-2xl font-black text-sky-600">฿{cartTotal.toLocaleString()}</span>
@@ -4660,7 +4770,41 @@ function App() {
                        </select>
                     </div>
                   </div>
+                  
                   <div><label className="text-xs font-bold text-slate-600 mb-1 block">ที่อยู่ / สถานที่นัดรับ</label><textarea name="address" value={checkoutForm.address} onChange={(e) => handleCheckoutFormChange('address', e.target.value)} required className="w-full p-3 bg-slate-50 border rounded-xl resize-none"></textarea></div>
+
+                  {/* Shipping & Total Summary inside Checkout */}
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+                     <div className="flex justify-between text-sm mb-2 text-slate-600 font-bold">
+                       <span>ค่าสินค้า + หิ้ว</span>
+                       <span>฿{(cartStats.cartSubtotal + cartStats.cartCarryingFee).toLocaleString()}</span>
+                     </div>
+                     <div className="flex justify-between text-sm mb-3 text-slate-600 font-bold">
+                       <span>ค่าจัดส่ง ({checkoutForm.deliveryMethod === 'shipping' ? 'จัดส่งพัสดุ' : 'นัดรับ'})</span>
+                       <span className={checkoutShippingFee === 0 ? 'text-emerald-600' : 'text-orange-600'}>
+                         {checkoutShippingFee === 0 ? 'ฟรี' : `+฿${checkoutShippingFee.toLocaleString()}`}
+                       </span>
+                     </div>
+
+                     {/* ย้ายหมายเหตุมาแสดงต่อจากบรรทัดค่าจัดส่ง เพื่อให้สอดคล้องกัน */}
+                     {checkoutForm.deliveryMethod === 'shipping' && sysSettings.shippingNote && (
+                        <div className="mb-3 p-3 bg-orange-50 border border-orange-100/50 rounded-lg text-xs text-orange-700 leading-relaxed whitespace-pre-wrap animate-in fade-in shadow-sm">
+                          <span className="font-bold flex items-center gap-1.5 mb-1"><Truck className="w-3.5 h-3.5"/> หมายเหตุการจัดส่ง:</span>
+                          {sysSettings.shippingNote}
+                        </div>
+                     )}
+                     {checkoutForm.deliveryMethod === 'pickup' && sysSettings.pickupNote && (
+                        <div className="mb-3 p-3 bg-emerald-50 border border-emerald-100/50 rounded-lg text-xs text-emerald-700 leading-relaxed whitespace-pre-wrap animate-in fade-in shadow-sm">
+                          <span className="font-bold flex items-center gap-1.5 mb-1"><MapPin className="w-3.5 h-3.5"/> หมายเหตุสถานที่นัดรับ:</span>
+                          {sysSettings.pickupNote}
+                        </div>
+                     )}
+
+                     <div className="flex justify-between items-end font-black text-lg text-sky-600 border-t border-slate-200 pt-3 mt-1">
+                       <span className="text-xs text-slate-500 uppercase tracking-widest">ยอดรวมสุทธิ</span>
+                       <span className="text-2xl">฿{cartTotalCheckout.toLocaleString()}</span>
+                     </div>
+                  </div>
                 </div>
                 <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
                   <button type="button" onClick={() => openModal('cart')} className="px-5 py-2.5 bg-white border rounded-xl font-bold flex items-center justify-center">ย้อนกลับ</button>
