@@ -4075,11 +4075,11 @@ function App() {
       {/* --- ANNOUNCEMENT POP-UP (GLOBAL LEVEL) --- */}
       {showAnnouncement && (
         <div 
-          className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300"
+          className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300 ease-out"
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >
-          <div className="bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+          <div className="bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-300 ease-out overflow-hidden">
             
             {/* Header */}
             <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-4 sm:p-5 flex items-center justify-between flex-shrink-0">
@@ -4132,7 +4132,7 @@ function App() {
              ))}
           </datalist>
           <div className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform transition-all duration-300 ease-out ${isModalVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.95] opacity-0 translate-y-8'}
-              ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[92vh] md:max-h-[85vh] md:min-h-[500px]' : 
+              ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[90vh] md:max-h-[85vh] md:min-h-[500px]' : 
                 (modal.type === 'store_for_order' ? 'max-w-4xl max-h-[85vh] md:h-[600px]' :
                 (modal.type === 'edit_order' ? 'max-w-4xl max-h-[90vh]' :
                 (modal.type === 'cart' ? 'max-w-xl max-h-[90vh]' : 
@@ -4381,7 +4381,7 @@ function App() {
 
             {/* STORE FOR ORDER MODAL */}
             {modal.type === 'store_for_order' && (
-              <div className="flex flex-col h-full bg-slate-50">
+              <div className="flex flex-col flex-1 min-h-0 bg-slate-50">
                 <div className="flex justify-between items-center p-5 border-b border-slate-200 bg-white">
                   <div className="flex items-center gap-3">
                     <button onClick={() => openModal('edit_order')} className="p-2 bg-slate-100 rounded-full"><ArrowLeft className="w-5 h-5"/></button>
@@ -4419,7 +4419,7 @@ function App() {
 
             {/* PRODUCT DETAILS (Shared) */}
             {(modal.type === 'product_details' || modal.type === 'product_details_for_order') && (
-              <div className="flex flex-col w-full h-full flex-1 min-h-0 bg-white relative overflow-hidden">
+              <div className="flex flex-col flex-1 min-h-0 bg-white relative">
                 
                 {/* Scrollable Content Area */}
                 <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-y-auto md:overflow-hidden">
@@ -4571,7 +4571,7 @@ function App() {
 
             {/* PRODUCT FORM MODAL */}
             {modal.type === 'product_form' && (
-              <form className="flex flex-col w-full max-h-[92vh] overflow-hidden bg-slate-50" onSubmit={handleProductSubmit}>
+              <form className="flex flex-col flex-1 min-h-0 bg-slate-50" onSubmit={handleProductSubmit}>
                 {/* Header fixed at top */}
                 <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-200 bg-white flex-shrink-0 z-10 shadow-sm">
                   <h3 className="text-xl font-black text-slate-800">{modal.data ? 'แก้ไขสินค้า / EDIT' : 'เพิ่มสินค้าใหม่ / NEW ITEM'}</h3>
@@ -4719,7 +4719,7 @@ function App() {
 
             {/* CART & CHECKOUT */}
             {modal.type === 'cart' && (
-              <div className="flex flex-col h-full max-h-[85vh]">
+              <div className="flex flex-col flex-1 min-h-0">
                 <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50 flex-shrink-0">
                   <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><ShoppingCart className="w-6 h-6 text-sky-500" /> ตะกร้าสินค้า</h3>
                   <button onClick={closeModal} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
@@ -4777,7 +4777,7 @@ function App() {
 
             {/* CHECKOUT */}
             {modal.type === 'checkout' && (
-              <form className="flex flex-col h-full max-h-[90vh]" onSubmit={handleCheckoutSubmit}>
+              <form className="flex flex-col flex-1 min-h-0" onSubmit={handleCheckoutSubmit}>
                 <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-sky-50 flex-shrink-0">
                   <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><CreditCard className="w-6 h-6 text-sky-600" /> ข้อมูลจัดส่ง</h3>
                   <button type="button" onClick={() => openModal('cart')} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
@@ -4841,7 +4841,7 @@ function App() {
 
             {/* USER FORM MODAL */}
             {modal.type === 'user_form' && (
-              <form className="flex flex-col h-full max-h-[90vh]" onSubmit={handleSaveUser}>
+              <form className="flex flex-col flex-1 min-h-0" onSubmit={handleSaveUser}>
                 <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50 flex-shrink-0">
                   <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Users className="w-6 h-6 text-amber-500" /> {modal.data ? 'ข้อมูลและการจัดการสิทธิ์' : 'เพิ่มผู้ใช้ใหม่'}</h3>
                   <button type="button" onClick={closeModal} className="p-1 text-slate-400"><X className="w-6 h-6"/></button>
