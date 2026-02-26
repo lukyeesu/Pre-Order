@@ -6,7 +6,7 @@ import {
   Phone, User, Truck, AlignLeft, Tags, GripHorizontal, ArrowLeft, 
   Receipt, Banknote, PenTool, Save, Tag, Landmark, Search, 
   Download, PieChart, TrendingUp, AlertTriangle, CheckCircle, Folder, Activity, Award, Filter,
-  Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle
+  Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle, Megaphone, Bell
 } from 'lucide-react';
 
 // --- TYPES & INTERFACES ---
@@ -129,6 +129,8 @@ export interface SystemSettings {
   storeAccountName?: string; // Add this (ชื่อบัญชีของร้าน)
   telegramBotToken?: string; // Add this
   telegramChatId?: string;   // Add this
+  announcementText?: string;               // Add this
+  isAnnouncementActive?: boolean | string; // Add this
 }
 
 // --- CONFIGURATION ---
@@ -339,6 +341,37 @@ function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
+  // โหลดและใช้งานฟอนต์ Kanit ทั่วทั้งแอปพลิเคชัน
+  useEffect(() => {
+    if (!document.getElementById('kanit-font')) {
+      const link = document.createElement('link');
+      link.id = 'kanit-font';
+      link.href = 'https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap';
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+      const style = document.createElement('style');
+      style.innerHTML = `
+        body, input, button, select, textarea, .font-sans { 
+          font-family: 'Kanit', sans-serif !important; 
+        }
+        /* ยกเว้นให้ font-mono ยังคงแสดงผลได้ถูกต้องสำหรับพวก รหัส ID */
+        .font-mono {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+        }
+        
+        /* * 💎 PREMIUM TYPOGRAPHY OVERRIDE 💎
+         * ปรับลดน้ำหนักฟอนต์ Kanit แบบ Global เพื่อให้ดูเรียบหรู คลีน มินิมอล ไม่หนาเทอะทะ
+         */
+        .font-black { font-weight: 700 !important; }      /* ลดจาก 900 -> 700 (Bold) สำหรับหัวข้อใหญ่/ตัวเลขเน้นๆ */
+        .font-extrabold { font-weight: 600 !important; }  /* ลดจาก 800 -> 600 (SemiBold) */
+        .font-bold { font-weight: 500 !important; }       /* ลดจาก 700 -> 500 (Medium) เหมาะมากสำหรับหัวตารางและปุ่ม */
+        .font-semibold { font-weight: 500 !important; }   /* ลดจาก 600 -> 500 (Medium) */
+        .font-medium { font-weight: 400 !important; }     /* ลดจาก 500 -> 400 (Regular) ทำให้ข้อความรองอ่านง่ายขึ้น */
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   // UX & Processing States
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -371,8 +404,15 @@ function App() {
     storeBankAccount: '',
     storeAccountName: '',
     telegramBotToken: '',
-    telegramChatId: ''
+    telegramChatId: '',
+    announcementText: '',
+    isAnnouncementActive: false
   });
+
+  // Announcement States
+  const [showAnnouncement, setShowAnnouncement] = useState<boolean>(false);
+  const [hasSeenAnnouncement, setHasSeenAnnouncement] = useState<boolean>(false);
+  const [dontShowToday, setDontShowToday] = useState<boolean>(false);
   
   // Core States
   const [products, setProducts] = useState<Product[]>([]);
@@ -550,6 +590,15 @@ function App() {
           }
           if (json.data.settings && json.data.settings.length > 0) {
             const fetchedSettings = json.data.settings[0];
+            
+            // แปลงค่าจากข้อความให้เป็น Boolean สำหรับฟีเจอร์ประกาศ
+            if (fetchedSettings.isAnnouncementActive !== undefined) {
+               fetchedSettings.isAnnouncementActive = String(fetchedSettings.isAnnouncementActive).toLowerCase() === 'true';
+            }
+            if (fetchedSettings.announcementText !== undefined && fetchedSettings.announcementText !== null) {
+               fetchedSettings.announcementText = typeof fetchedSettings.announcementText === 'object' ? JSON.stringify(fetchedSettings.announcementText) : String(fetchedSettings.announcementText);
+            }
+            
             setSysSettings(prev => ({ ...prev, ...fetchedSettings }));
             if (fetchedSettings.orderStatuses) {
                try { setOrderStatuses(typeof fetchedSettings.orderStatuses === 'string' ? JSON.parse(fetchedSettings.orderStatuses) : fetchedSettings.orderStatuses); } catch(e){}
@@ -578,6 +627,36 @@ function App() {
     };
     fetchInitialData();
   }, []);
+
+  // --- ANNOUNCEMENT LOGIC ---
+  useEffect(() => {
+    let hideDate = null;
+    try {
+      hideDate = localStorage.getItem('hideAnnouncementDate');
+    } catch (e) {
+      console.warn('LocalStorage is disabled by browser');
+    }
+    const today = new Date().toDateString();
+
+    if (activeTab === 'store' && sysSettings.isAnnouncementActive && sysSettings.announcementText && !hasSeenAnnouncement && hideDate !== today) {
+      const timer = setTimeout(() => {
+        setShowAnnouncement(true);
+      }, 500); 
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, sysSettings.isAnnouncementActive, sysSettings.announcementText, hasSeenAnnouncement]);
+
+  const closeAnnouncement = () => {
+    setShowAnnouncement(false);
+    setHasSeenAnnouncement(true);
+    if (dontShowToday) {
+      try {
+        localStorage.setItem('hideAnnouncementDate', new Date().toDateString());
+      } catch (e) {
+        console.warn('Cannot save to LocalStorage');
+      }
+    }
+  };
 
   // --- HELPER FUNCTIONS ---
   const handleTabSwitch = (newTab: string) => {
@@ -673,6 +752,17 @@ function App() {
     const numbers = existingIds.map(id => parseInt(id.replace('U', ''), 10)).filter(n => !isNaN(n));
     const maxNumber = Math.max(...numbers, 0);
     return `U${String(maxNumber + 1).padStart(3, '0')}`;
+  };
+
+  const generateNextOrderId = () => {
+    if (orders.length === 0) return 'ORD-0001';
+    const numbers = orders.map(o => {
+      // ดึงเฉพาะส่วนที่เป็นตัวเลขออกมาจาก ID
+      const match = o.id.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    }).filter(n => !isNaN(n));
+    const maxNumber = numbers.length > 0 ? Math.max(...numbers, 0) : 0;
+    return `ORD-${String(maxNumber + 1).padStart(4, '0')}`;
   };
 
   useEffect(() => {
@@ -1546,7 +1636,7 @@ function App() {
     }
 
     const newOrder: Order = {
-      id: `ORD-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+      id: generateNextOrderId(),
       userId: finalUserId,
       orderDate: currentDate,
       customer: formDataObj.customerName || currentUser?.name || 'ลูกค้า', 
@@ -1601,6 +1691,11 @@ function App() {
          }
       }
       
+      // 🟢 นำเลขออเดอร์ของจริงที่เซิร์ฟเวอร์เจาะจงให้ มาแทนที่ตัวชั่วคราว
+      if (data.newOrderId) {
+        newOrder.id = data.newOrderId;
+      }
+
       setProducts(nextProducts);
       setOrders([newOrder, ...orders]);
       setCart([]);
@@ -2542,24 +2637,24 @@ function App() {
                 <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-5 xl:p-6 text-white shadow-[0_8px_30px_rgba(99,102,241,0.2)] relative overflow-hidden lg:col-span-3">
                   <div className="absolute -right-4 -top-4 opacity-20"><Banknote className="w-32 h-32"/></div>
                   <p className="text-indigo-100 font-bold mb-1 text-xs xl:text-sm flex items-center gap-2"><TrendingUp className="w-4 h-4"/> ยอดขายรวม</p>
-                  <h3 className="text-2xl xl:text-3xl font-black tracking-tight relative z-10">฿{dashboardStats.totalRevenue.toLocaleString()}</h3>
+                  <h3 className="text-2xl xl:text-3xl font-bold tracking-tight relative z-10">฿{dashboardStats.totalRevenue.toLocaleString()}</h3>
                 </div>
                 <div className="bg-white rounded-3xl p-5 xl:p-6 border border-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col justify-center lg:col-span-3">
                   <p className="text-slate-500 font-bold mb-1 text-xs xl:text-sm flex items-center gap-2"><Box className="w-4 h-4 text-blue-500"/> ค่าสินค้า (ต้นทุน)</p>
-                  <h3 className="text-2xl xl:text-3xl font-black text-slate-800">฿{dashboardStats.totalProductRevenue.toLocaleString()}</h3>
+                  <h3 className="text-2xl xl:text-3xl font-bold text-slate-800">฿{dashboardStats.totalProductRevenue.toLocaleString()}</h3>
                 </div>
                 <div className="bg-white rounded-3xl p-5 xl:p-6 border border-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col justify-center lg:col-span-2">
                   <p className="text-slate-500 font-bold mb-1 text-xs xl:text-sm flex items-center gap-2"><CheckCircle className="w-4 h-4 text-sky-500"/> ค่าหิ้ว+ส่ง (รายได้)</p>
-                  <h3 className="text-2xl xl:text-3xl font-black text-slate-800">฿{(dashboardStats.totalCarryingFee + dashboardStats.totalShippingFee).toLocaleString()}</h3>
+                  <h3 className="text-2xl xl:text-3xl font-bold text-slate-800">฿{(dashboardStats.totalCarryingFee + dashboardStats.totalShippingFee).toLocaleString()}</h3>
                 </div>
                 <div className="bg-white rounded-3xl p-5 xl:p-6 border border-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] flex flex-col justify-center lg:col-span-2">
                   <p className="text-slate-500 font-bold mb-1 text-xs xl:text-sm flex items-center gap-2"><AlertCircle className="w-4 h-4 text-rose-500"/> รายจ่ายจริง</p>
-                  <h3 className="text-2xl xl:text-3xl font-black text-rose-600">฿{dashboardStats.totalActualExpenses.toLocaleString()}</h3>
+                  <h3 className="text-2xl xl:text-3xl font-bold text-rose-600">฿{dashboardStats.totalActualExpenses.toLocaleString()}</h3>
                 </div>
                 <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-5 xl:p-6 text-white shadow-[0_8px_30px_rgba(16,185,129,0.2)] relative overflow-hidden md:col-span-2 lg:col-span-2">
                   <div className="absolute -right-4 -top-4 opacity-20"><Award className="w-32 h-32"/></div>
                   <p className="text-emerald-100 font-bold mb-1 text-xs xl:text-sm flex items-center gap-2"><Activity className="w-4 h-4"/> กำไรสุทธิ</p>
-                  <h3 className="text-3xl xl:text-4xl font-black tracking-tight relative z-10">฿{((dashboardStats.totalCarryingFee + dashboardStats.totalShippingFee) - dashboardStats.totalActualExpenses).toLocaleString()}</h3>
+                  <h3 className="text-3xl xl:text-4xl font-bold tracking-tight relative z-10">฿{((dashboardStats.totalCarryingFee + dashboardStats.totalShippingFee) - dashboardStats.totalActualExpenses).toLocaleString()}</h3>
                 </div>
               </div>
 
@@ -2569,7 +2664,7 @@ function App() {
                   <div onClick={() => setDashStatusFilter('all')} className={`bg-white rounded-2xl p-4 border shadow-[0_4px_15px_rgba(0,0,0,0.02)] flex flex-col justify-between transition-all hover:-translate-y-1 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] cursor-pointer ${dashStatusFilter === 'all' ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-100 opacity-60 hover:opacity-100'}`}>
                     <div className="flex justify-between items-start mb-3"><span className="px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold border bg-slate-800 text-white border-slate-700">ทั้งหมด</span></div>
                     <div className="flex items-end justify-between mt-1">
-                      <h4 className="text-3xl font-black text-slate-800 leading-none">
+                      <h4 className="text-3xl font-bold text-slate-800 leading-none">
                         {dashStatusFilter === 'all' ? (dashboardStats.totalBaseOrders || 0) : 0}
                       </h4>
                       <span className="text-[10px] text-slate-400 font-bold mb-1">รายการ</span>
@@ -2579,7 +2674,7 @@ function App() {
                     <div key={status.id} onClick={() => setDashStatusFilter(status.id)} className={`bg-white rounded-2xl p-4 border shadow-[0_4px_15px_rgba(0,0,0,0.02)] flex flex-col justify-between transition-all hover:-translate-y-1 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] cursor-pointer ${dashStatusFilter === status.id ? 'border-emerald-400 ring-2 ring-emerald-400/20' : (dashStatusFilter !== 'all' ? 'border-slate-100 opacity-60 hover:opacity-100' : 'border-slate-100')}`}>
                       <div className="flex justify-between items-start mb-3"><span className={`px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold border ${getColorClasses(status.color)}`}>{status.label}</span></div>
                       <div className="flex items-end justify-between mt-1">
-                        <h4 className="text-3xl font-black text-slate-800 leading-none">
+                        <h4 className="text-3xl font-bold text-slate-800 leading-none">
                           {dashStatusFilter === 'all' || dashStatusFilter === status.id ? (dashboardStats.statusCounts?.[status.id] || 0) : 0}
                         </h4>
                         <span className="text-[10px] text-slate-400 font-bold mb-1">รายการ</span>
@@ -2638,7 +2733,7 @@ function App() {
                   {dashboardStats.topProducts.map((p, idx) => (
                     <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 ease-out" style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both', animationDuration: '600ms'}}>
                       <div className="flex justify-between items-start">
-                         <span className="font-black text-slate-300 text-lg leading-none">#{idx + 1}</span>
+                         <span className="font-bold text-slate-300 text-lg leading-none">#{idx + 1}</span>
                          <span className="font-bold text-emerald-600">฿{p.revenue.toLocaleString()}</span>
                       </div>
                       <p className="font-bold text-slate-700 text-sm leading-snug">{p.name}</p>
@@ -2665,7 +2760,7 @@ function App() {
                     <tbody className="text-sm">
                       {dashboardStats.topProducts.map((p, idx) => (
                         <tr key={idx} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors group animate-in fade-in slide-in-from-bottom-4 ease-out" style={{animationDelay: `${Math.min(idx * 80, 800)}ms`, animationFillMode: 'both', animationDuration: '1000ms'}}>
-                          <td className="py-3.5 pl-2 font-black text-slate-300 group-hover:text-amber-500 transition-colors">#{idx + 1}</td>
+                          <td className="py-3.5 pl-2 font-bold text-slate-300 group-hover:text-amber-500 transition-colors">#{idx + 1}</td>
                           <td className="py-3.5 font-bold text-slate-700 truncate max-w-[150px] sm:max-w-[250px] lg:max-w-[300px]">{p.name}</td>
                           <td className="py-3.5 text-center font-mono font-bold text-blue-600">
                             <span className="bg-blue-50/80 px-3 py-1 rounded-lg border border-blue-100/50">{p.qty}</span>
@@ -2929,6 +3024,50 @@ function App() {
         {/* STOREFRONT TAB */}
         {activeTab === 'store' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
+            
+            {/* ANNOUNCEMENT POP-UP */}
+            {showAnnouncement && (
+              <div 
+                className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300"
+                onWheel={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+              >
+                <div className="bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+                  
+                  {/* Header */}
+                  <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-4 sm:p-5 flex items-center justify-between flex-shrink-0">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                        <Megaphone className="w-6 h-6 text-white animate-pulse" />
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-bold text-white tracking-wide">ประกาศจากทางร้าน</h3>
+                    </div>
+                    <button onClick={closeAnnouncement} className="text-white/80 hover:text-white bg-black/10 hover:bg-black/20 p-2 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+                  </div>
+                  
+                  {/* Scrollable Content (ใช้ TableScrollWrapper เพื่อดักการเลื่อนพื้นหลัง) */}
+                  <TableScrollWrapper className="p-5 sm:p-8 overflow-y-auto flex-1">
+                    <div className="text-slate-700 whitespace-pre-wrap leading-relaxed font-medium text-sm sm:text-base">
+                      {typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')}
+                    </div>
+                  </TableScrollWrapper>
+                  
+                  {/* Footer Action */}
+                  <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
+                    <label className="flex items-center justify-center gap-2 cursor-pointer group">
+                      <div className="relative flex items-center justify-center">
+                        <input type="checkbox" checked={dontShowToday} onChange={(e) => setDontShowToday(e.target.checked)} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-md checked:bg-sky-500 checked:border-sky-500 transition-colors cursor-pointer" />
+                        <Check className="w-3.5 h-3.5 text-white absolute opacity-0 peer-checked:opacity-100 pointer-events-none" strokeWidth={3} />
+                      </div>
+                      <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">วันนี้ไม่ต้องแสดงอีก</span>
+                    </label>
+                    <button onClick={closeAnnouncement} className="w-full sm:w-auto px-8 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl transition-colors shadow-[0_4px_15px_rgba(14,165,233,0.3)]">รับทราบ</button>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
             <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
                 <h2 className="text-3xl font-bold text-slate-800 tracking-wide flex items-center gap-3">
@@ -3428,6 +3567,35 @@ function App() {
                 </div>
               </div>
 
+              {/* ANNOUNCEMENT SETTINGS CARD */}
+              <div className="max-w-6xl mx-auto bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white space-y-5 relative overflow-hidden">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="p-2 bg-amber-50 text-amber-600 rounded-xl"><Megaphone className="w-5 h-5"/></div>
+                  <h3 className="text-lg font-black text-slate-800 tracking-wide">ตั้งค่าประกาศหน้าร้าน</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-5">
+                  <div className="flex items-center gap-3">
+                     <label className="relative inline-flex items-center cursor-pointer">
+                       <input type="checkbox" checked={!!sysSettings.isAnnouncementActive} onChange={(e) => setSysSettings({...sysSettings, isAnnouncementActive: e.target.checked})} className="sr-only peer" />
+                       <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                       <span className="ml-3 text-sm font-bold text-slate-700">เปิดใช้งานป๊อปอัพประกาศ</span>
+                     </label>
+                  </div>
+                  {sysSettings.isAnnouncementActive && (
+                    <div>
+                      <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">ข้อความประกาศ (รองรับการขึ้นบรรทัดใหม่)</label>
+                      <textarea rows={4} value={sysSettings.announcementText || ''} onChange={(e) => setSysSettings({...sysSettings, announcementText: e.target.value})} placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." className="w-full p-4 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-inner resize-none"></textarea>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-100 mt-2">
+                  <button onClick={handleSaveSettings} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all">
+                    <Save className="w-4 h-4" /> บันทึกการตั้งค่า
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl mx-auto">
                 <div className="bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white flex flex-col h-[480px]">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-shrink-0">
@@ -3770,6 +3938,49 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* --- ANNOUNCEMENT POP-UP (GLOBAL LEVEL) --- */}
+      {showAnnouncement && (
+        <div 
+          className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300"
+          onWheel={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
+          <div className="bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl animate-in zoom-in-95 duration-300 overflow-hidden">
+            
+            {/* Header */}
+            <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-4 sm:p-5 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                  <Megaphone className="w-6 h-6 text-white animate-pulse" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-white tracking-wide">ประกาศจากทางร้าน</h3>
+              </div>
+              <button onClick={closeAnnouncement} className="text-white/80 hover:text-white bg-black/10 hover:bg-black/20 p-2 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+            </div>
+            
+            {/* Scrollable Content */}
+            <TableScrollWrapper className="p-5 sm:p-8 overflow-y-auto flex-1">
+              <div className="text-slate-700 whitespace-pre-wrap leading-relaxed font-medium text-sm sm:text-base">
+                {typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')}
+              </div>
+            </TableScrollWrapper>
+            
+            {/* Footer Action */}
+            <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0">
+              <label className="flex items-center justify-center gap-2 cursor-pointer group">
+                <div className="relative flex items-center justify-center">
+                  <input type="checkbox" checked={dontShowToday} onChange={(e) => setDontShowToday(e.target.checked)} className="peer appearance-none w-5 h-5 border-2 border-slate-300 rounded-md checked:bg-sky-500 checked:border-sky-500 transition-colors cursor-pointer" />
+                  <Check className="w-3.5 h-3.5 text-white absolute opacity-0 peer-checked:opacity-100 pointer-events-none" strokeWidth={3} />
+                </div>
+                <span className="text-sm font-bold text-slate-500 group-hover:text-slate-700 transition-colors">วันนี้ไม่ต้องแสดงอีก</span>
+              </label>
+              <button onClick={closeAnnouncement} className="w-full sm:w-auto px-8 py-3 bg-sky-500 hover:bg-sky-600 text-white font-bold rounded-xl transition-colors shadow-[0_4px_15px_rgba(14,165,233,0.3)]">รับทราบ</button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* --- MODALS --- */}
       {modal.isOpen && (
@@ -4415,7 +4626,7 @@ function App() {
                     <div className="flex justify-between items-end mb-4 pt-3 border-t border-slate-200">
                       <span className="text-slate-800 font-bold">ยอดรวมสุทธิ</span><span className="text-2xl font-black text-sky-600">฿{cartTotal.toLocaleString()}</span>
                     </div>
-                    <button onClick={() => openModal('checkout')} className="w-full bg-sky-500 text-white py-3.5 rounded-xl font-bold flex justify-center gap-2">ดำเนินการสั่งซื้อ <Check className="w-5 h-5" /></button>
+                    <button onClick={() => openModal('checkout')} className="w-full bg-sky-500 text-white py-3.5 rounded-xl font-bold flex justify-center items-center gap-2 whitespace-nowrap">ดำเนินการสั่งซื้อ <Check className="w-5 h-5 flex-shrink-0" /></button>
                   </div>
                 )}
               </div>
@@ -4445,8 +4656,8 @@ function App() {
                   <div><label className="text-xs font-bold text-slate-600 mb-1 block">ที่อยู่ / สถานที่นัดรับ</label><textarea name="address" value={checkoutForm.address} onChange={(e) => handleCheckoutFormChange('address', e.target.value)} required className="w-full p-3 bg-slate-50 border rounded-xl resize-none"></textarea></div>
                 </div>
                 <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
-                  <button type="button" onClick={() => openModal('cart')} className="px-5 py-2.5 bg-white border rounded-xl font-bold">ย้อนกลับ</button>
-                  <button type="submit" className="px-5 py-2.5 bg-sky-500 text-white rounded-xl font-bold">ยืนยันสั่งซื้อ</button>
+                  <button type="button" onClick={() => openModal('cart')} className="px-5 py-2.5 bg-white border rounded-xl font-bold flex items-center justify-center">ย้อนกลับ</button>
+                  <button type="submit" className="px-5 py-2.5 bg-sky-500 text-white rounded-xl font-bold flex items-center justify-center whitespace-nowrap">ยืนยันสั่งซื้อ</button>
                 </div>
               </form>
             )}
@@ -4516,7 +4727,7 @@ function App() {
                 <h3 className="text-2xl font-black text-slate-800 mb-2">ยืนยันการลบคำสั่งซื้อ</h3>
                 <p className="text-slate-500 mb-8 text-sm">ลบคำสั่งซื้อ "{modal.data?.id}" ถาวร?<br/><span className="text-rose-500 font-bold">ระบบจะทำการคืนสต๊อกสินค้าอัตโนมัติ</span></p>
                 <div className="flex justify-center gap-4">
-                  <button onClick={() => openModal('edit_order', modal.data)} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">ยกเลิก</button>
+                  <button onClick={closeModal} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">ยกเลิก</button>
                   <button onClick={() => handleDeleteOrder(modal.data.id)} className="px-6 py-2.5 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-[0_4px_15px_rgba(225,29,72,0.3)] transition-all">ยืนยันการลบถาวร</button>
                 </div>
               </div>
