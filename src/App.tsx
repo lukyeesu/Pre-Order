@@ -4087,7 +4087,7 @@ function App() {
           onTouchMove={(e) => e.stopPropagation()}
         >
           <div 
-            className={`bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl overflow-hidden transform-gpu transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isAnnouncementVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+            className={`bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl overflow-hidden transform-gpu transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isAnnouncementVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.95] opacity-0 translate-y-8'}`}
             style={{ WebkitBackfaceVisibility: 'hidden', WebkitPerspective: 1000, WebkitTransform: 'translate3d(0,0,0)' }}
           >
             
@@ -4133,7 +4133,7 @@ function App() {
           onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}
         >
           <div 
-            className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform-gpu transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isModalVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}
+            className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform-gpu transition duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isModalVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.95] opacity-0 translate-y-8'}
               ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[90vh] md:max-h-[85vh] md:min-h-[500px]' : 
                 (modal.type === 'store_for_order' ? 'max-w-4xl max-h-[85vh] md:h-[600px]' :
                 (modal.type === 'edit_order' ? 'max-w-4xl max-h-[90vh]' :
