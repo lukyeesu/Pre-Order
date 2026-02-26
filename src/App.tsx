@@ -451,6 +451,7 @@ function App() {
 
   // Announcement States
   const [showAnnouncement, setShowAnnouncement] = useState<boolean>(false);
+  const [isAnnouncementVisible, setIsAnnouncementVisible] = useState<boolean>(false); // เพิ่ม State สำหรับควบคุมแอนิเมชันให้สมูท
   const [hasSeenAnnouncement, setHasSeenAnnouncement] = useState<boolean>(false);
   const [dontShowToday, setDontShowToday] = useState<boolean>(false);
 
@@ -681,21 +682,26 @@ function App() {
     if (activeTab === 'store' && sysSettings.isAnnouncementActive && sysSettings.announcementText && !hasSeenAnnouncement && hideDate !== today) {
       const timer = setTimeout(() => {
         setShowAnnouncement(true);
+        // หน่วงเวลาเล็กน้อยให้ DOM วาดเสร็จก่อน ค่อยเรียกแอนิเมชัน
+        setTimeout(() => setIsAnnouncementVisible(true), 10);
       }, 500); 
       return () => clearTimeout(timer);
     }
   }, [activeTab, sysSettings.isAnnouncementActive, sysSettings.announcementText, hasSeenAnnouncement]);
 
   const closeAnnouncement = () => {
-    setShowAnnouncement(false);
-    setHasSeenAnnouncement(true);
-    if (dontShowToday) {
-      try {
-        localStorage.setItem('hideAnnouncementDate', new Date().toDateString());
-      } catch (e) {
-        console.warn('Cannot save to LocalStorage');
+    setIsAnnouncementVisible(false); // สั่งปิดแอนิเมชันก่อน
+    setTimeout(() => { // รอแอนิเมชันเล่นจบ 300ms ค่อยลบ DOM ทิ้ง
+      setShowAnnouncement(false);
+      setHasSeenAnnouncement(true);
+      if (dontShowToday) {
+        try {
+          localStorage.setItem('hideAnnouncementDate', new Date().toDateString());
+        } catch (e) {
+          console.warn('Cannot save to LocalStorage');
+        }
       }
-    }
+    }, 300);
   };
 
   // --- HELPER FUNCTIONS ---
@@ -4075,11 +4081,11 @@ function App() {
       {/* --- ANNOUNCEMENT POP-UP (GLOBAL LEVEL) --- */}
       {showAnnouncement && (
         <div 
-          className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300 ease-out"
+          className={`fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 transition-opacity duration-300 ease-out ${isAnnouncementVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
           onWheel={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >
-          <div className="bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-300 ease-out overflow-hidden">
+          <div className={`bg-white rounded-3xl w-full max-w-3xl flex flex-col max-h-[85vh] shadow-2xl overflow-hidden transform transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isAnnouncementVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             
             {/* Header */}
             <div className="bg-gradient-to-r from-sky-500 to-blue-600 p-4 sm:p-5 flex items-center justify-between flex-shrink-0">
@@ -4117,7 +4123,7 @@ function App() {
 
       {/* --- MODALS --- */}
       {modal.isOpen && (
-        <div className={`fixed inset-0 bg-slate-900/40 backdrop-blur-[4px] z-[100] flex items-center justify-center p-3 sm:p-4 transition-all duration-300 ease-out ${isModalVisible ? 'opacity-100' : 'opacity-0'}`} onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+        <div className={`fixed inset-0 bg-slate-900/40 backdrop-blur-[4px] z-[100] flex items-center justify-center p-3 sm:p-4 transition-opacity duration-300 ease-out ${isModalVisible ? 'opacity-100' : 'opacity-0'}`} onMouseDown={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
           <datalist id="existing-user-ids">
              {usersList.map(u => <option key={`mu-${u.id}`} value={u.id}>{u.name}</option>)}
              {Array.from(new Set(orders.filter(o => o.userId).map(o => o.userId))).filter(id => !usersList.find(u => u.id === id)).map(id => {
@@ -4131,7 +4137,7 @@ function App() {
                 <option key={`ouc-${i}`} value={name} />
              ))}
           </datalist>
-          <div className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform transition-all duration-300 ease-out ${isModalVisible ? 'scale-100 opacity-100 translate-y-0' : 'scale-[0.95] opacity-0 translate-y-8'}
+          <div className={`bg-white shadow-2xl rounded-3xl w-full overflow-hidden flex flex-col transform transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isModalVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}
               ${(modal.type === 'product_details' || modal.type === 'product_details_for_order' || modal.type === 'product_form') ? 'max-w-4xl max-h-[90vh] md:max-h-[85vh] md:min-h-[500px]' : 
                 (modal.type === 'store_for_order' ? 'max-w-4xl max-h-[85vh] md:h-[600px]' :
                 (modal.type === 'edit_order' ? 'max-w-4xl max-h-[90vh]' :
