@@ -707,6 +707,12 @@ function App() {
     }, 300);
   };
 
+  const openAnnouncementManual = () => {
+    if (announcementTimeoutRef.current) clearTimeout(announcementTimeoutRef.current);
+    setShowAnnouncement(true);
+    setTimeout(() => setIsAnnouncementVisible(true), 50);
+  };
+
   // --- HELPER FUNCTIONS ---
   const handleTabSwitch = (newTab: string) => {
     // บันทึกตำแหน่ง Scroll ปัจจุบันก่อนเปลี่ยนหน้า
@@ -3101,7 +3107,14 @@ function App() {
                     <Store className="w-8 h-8 text-sky-500" /> หน้าร้าน 
                     <span className="text-sky-500/40 text-2xl">/ STOREFRONT</span>
                   </h2>
-                  <p className="text-slate-500 mt-1 font-medium text-sm">เลือกซื้อสินค้าจาก {sysSettings.storeName}</p>
+                  <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                    <p className="text-slate-500 font-medium text-sm">เลือกซื้อสินค้าจาก {sysSettings.storeName}</p>
+                    {sysSettings.isAnnouncementActive && sysSettings.announcementText && (
+                      <button onClick={openAnnouncementManual} className="text-[10px] sm:text-xs font-bold bg-sky-50 hover:bg-sky-100 text-sky-600 px-2.5 py-1 rounded-md border border-sky-200 transition-colors flex items-center gap-1.5 shadow-sm active:scale-95">
+                        <Megaphone className="w-3.5 h-3.5" /> อ่านประกาศ
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="w-full md:w-72 relative md:mr-40 lg:mr-48 xl:mr-56">
                   <input type="text" placeholder="ค้นหาสินค้า..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20 shadow-sm transition-all" />
