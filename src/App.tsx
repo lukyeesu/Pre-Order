@@ -428,11 +428,6 @@ function App() {
   const [hasSeenAnnouncement, setHasSeenAnnouncement] = useState<boolean>(false);
   const [dontShowToday, setDontShowToday] = useState<boolean>(false);
 
-  // Capsule Overflow States
-  const [isCapsuleOverflowing, setIsCapsuleOverflowing] = useState<boolean>(false);
-  const capsuleContainerRef = useRef<HTMLDivElement>(null);
-  const capsuleTextRef = useRef<HTMLDivElement>(null);
-  
   // Core States
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
