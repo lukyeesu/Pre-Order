@@ -6,7 +6,7 @@ import {
   Phone, User, Truck, AlignLeft, Tags, GripHorizontal, ArrowLeft, 
   Receipt, Banknote, PenTool, Save, Tag, Landmark, Search, 
   Download, PieChart, TrendingUp, AlertTriangle, CheckCircle, Folder, Activity, Award, Filter,
-  Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle, Megaphone, Bell
+  Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle, Megaphone
 } from 'lucide-react';
 
 // --- TYPES & INTERFACES ---
