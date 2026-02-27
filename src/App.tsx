@@ -7,7 +7,8 @@ import {
   Receipt, Banknote, PenTool, Save, Tag, Landmark, Search, 
   Download, PieChart, TrendingUp, AlertTriangle, CheckCircle, Folder, Activity, Award, Filter,
   Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle, Megaphone,
-  Bold, AlignCenter, AlignRight, List, Italic, Underline, ListOrdered
+  Bold, AlignCenter, AlignRight, List, Italic, Underline, ListOrdered,
+  Strikethrough, Indent, Outdent, Eraser
 } from 'lucide-react';
 
 // --- TYPES & INTERFACES ---
@@ -248,6 +249,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: { value: string, onCha
         <button type="button" onClick={() => executeCommand('bold')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="ตัวหนา"><Bold className="w-4 h-4"/></button>
         <button type="button" onClick={() => executeCommand('italic')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="ตัวเอียง"><Italic className="w-4 h-4"/></button>
         <button type="button" onClick={() => executeCommand('underline')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="ขีดเส้นใต้"><Underline className="w-4 h-4"/></button>
+        <button type="button" onClick={() => executeCommand('strikethrough')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="ขีดฆ่า"><Strikethrough className="w-4 h-4"/></button>
         <div className="w-px h-4 bg-slate-300 mx-1"></div>
         <button type="button" onClick={() => executeCommand('justifyLeft')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="จัดชิดซ้าย"><AlignLeft className="w-4 h-4"/></button>
         <button type="button" onClick={() => executeCommand('justifyCenter')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="จัดกึ่งกลาง"><AlignCenter className="w-4 h-4"/></button>
@@ -255,10 +257,32 @@ const RichTextEditor = ({ value, onChange, placeholder }: { value: string, onCha
         <div className="w-px h-4 bg-slate-300 mx-1"></div>
         <button type="button" onClick={() => executeCommand('insertUnorderedList')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="รายการแบบจุด"><List className="w-4 h-4"/></button>
         <button type="button" onClick={() => executeCommand('insertOrderedList')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="รายการแบบตัวเลข"><ListOrdered className="w-4 h-4"/></button>
+        <button type="button" onClick={() => executeCommand('outdent')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="ลดการเยื้อง"><Outdent className="w-4 h-4"/></button>
+        <button type="button" onClick={() => executeCommand('indent')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="เพิ่มการเยื้อง"><Indent className="w-4 h-4"/></button>
         <div className="w-px h-4 bg-slate-300 mx-1"></div>
-        <div className="relative flex items-center" title="สีตัวอักษร">
+        <select 
+          onChange={(e) => {
+            if (e.target.value) {
+              executeCommand('insertText', e.target.value + ' ');
+              e.target.value = ""; // รีเซ็ตกลับหลังเลือกเสร็จ
+            }
+          }}
+          className="p-1 px-1.5 text-xs font-bold bg-white border border-slate-200 rounded-lg text-slate-700 outline-none hover:border-amber-300 transition-colors cursor-pointer w-24"
+          title="แทรกสัญลักษณ์พิเศษ"
+        >
+          <option value="">สัญลักษณ์...</option>
+          <option value="■">■ ทึบ</option>
+          <option value="□">□ โปร่ง</option>
+          <option value="-">- ขีด</option>
+          <option value="✓">✓ ถูก</option>
+          <option value="👉">👉 ชี้</option>
+          <option value="⭐">⭐ ดาว</option>
+        </select>
+        <div className="w-px h-4 bg-slate-300 mx-1"></div>
+        <div className="relative flex items-center mr-1" title="สีตัวอักษร">
            <input type="color" onChange={(e) => executeCommand('foreColor', e.target.value)} className="w-7 h-7 p-0 border-0 rounded cursor-pointer bg-transparent" />
         </div>
+        <button type="button" onClick={() => executeCommand('removeFormat')} className="p-1.5 hover:bg-rose-100 text-rose-500 rounded-lg transition-colors ml-auto" title="ล้างรูปแบบที่จัดไว้"><Eraser className="w-4 h-4"/></button>
       </div>
       {/* Editor Area */}
       <div 
@@ -267,7 +291,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: { value: string, onCha
         onInput={handleInput}
         onBlur={handleInput}
         onWheel={(e) => e.stopPropagation()}
-        className="p-4 min-h-[150px] overflow-y-auto resize-y outline-none text-sm text-slate-800 leading-relaxed rich-text-content"
+        className="p-4 min-h-[150px] overflow-y-auto resize-y outline-none text-sm sm:text-base text-slate-800 leading-relaxed rich-text-content w-full block"
         style={{ minHeight: '150px' }}
         data-placeholder={placeholder}
       />
@@ -480,11 +504,47 @@ function App() {
           pointer-events: none;
           display: block;
         }
-        .rich-text-content ul { list-style-type: disc !important; padding-left: 1.5rem !important; margin-top: 0.25rem; margin-bottom: 0.25rem; }
-        .rich-text-content ol { list-style-type: decimal !important; padding-left: 1.5rem !important; margin-top: 0.25rem; margin-bottom: 0.25rem; }
+        .rich-text-content {
+          word-break: break-word;
+          overflow-wrap: break-word;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+        
+        /* Nested Unordered Lists: Bullet -> Dash -> Square -> Check */
+        .rich-text-content ul { list-style-type: disc !important; padding-left: 2rem !important; margin-top: 0.25rem; margin-bottom: 0.25rem; }
+        .rich-text-content ul ul { list-style-type: "— " !important; }
+        .rich-text-content ul ul ul { list-style-type: square !important; }
+        .rich-text-content ul ul ul ul { list-style-type: "✓ " !important; }
+        
+        /* Nested Ordered Lists: 1. -> 1.1. -> 1.1.1. */
+        .rich-text-content ol { 
+          counter-reset: item; 
+          list-style-type: none !important; 
+          padding-left: 2.2rem !important; 
+          margin-top: 0.25rem; 
+          margin-bottom: 0.25rem; 
+        }
+        .rich-text-content ol > li { 
+          position: relative; 
+          display: block;
+          margin-bottom: 0.25rem;
+        }
+        .rich-text-content ol > li::before { 
+          content: counters(item, ".") ". "; 
+          counter-increment: item;
+          position: absolute; 
+          right: 100%; 
+          margin-right: 0.5rem; 
+          font-weight: inherit;
+          white-space: nowrap;
+          color: inherit;
+        }
+
         .rich-text-content b, .rich-text-content strong { font-weight: bold !important; }
         .rich-text-content i, .rich-text-content em { font-style: italic !important; }
         .rich-text-content u { text-decoration: underline !important; }
+        .rich-text-content s, .rich-text-content strike { text-decoration: line-through !important; }
         .rich-text-content font[size="1"] { font-size: 12px !important; line-height: 1.4 !important; }
         .rich-text-content font[size="2"] { font-size: 14px !important; line-height: 1.4 !important; }
         .rich-text-content font[size="3"] { font-size: 16px !important; line-height: 1.5 !important; }
@@ -492,6 +552,17 @@ function App() {
         .rich-text-content font[size="5"] { font-size: 24px !important; line-height: 1.4 !important; }
         .rich-text-content font[size="6"] { font-size: 32px !important; line-height: 1.3 !important; }
         .rich-text-content font[size="7"] { font-size: 40px !important; line-height: 1.2 !important; }
+        
+        /* ให้ List Marker (จุด Bullet และตัวเลข) อิงขนาดและความหนาตามเนื้อหาข้างใน */
+        .rich-text-content li:has(b), .rich-text-content li:has(strong) { font-weight: bold !important; }
+        .rich-text-content li:has(font[size="1"]) { font-size: 12px !important; line-height: 1.4 !important; }
+        .rich-text-content li:has(font[size="2"]) { font-size: 14px !important; line-height: 1.4 !important; }
+        .rich-text-content li:has(font[size="3"]) { font-size: 16px !important; line-height: 1.5 !important; }
+        .rich-text-content li:has(font[size="4"]) { font-size: 18px !important; line-height: 1.5 !important; }
+        .rich-text-content li:has(font[size="5"]) { font-size: 24px !important; line-height: 1.4 !important; }
+        .rich-text-content li:has(font[size="6"]) { font-size: 32px !important; line-height: 1.3 !important; }
+        .rich-text-content li:has(font[size="7"]) { font-size: 40px !important; line-height: 1.2 !important; }
+
         .rich-text-content div, .rich-text-content p { min-height: 1rem; }
       `;
       document.head.appendChild(style);
@@ -1300,7 +1371,13 @@ function App() {
     setIsProcessing(true); setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const cleanUsername = (formData.get('username') as string).trim().toLowerCase();
+    
+    // แก้ไข: ดึงข้อมูล username และ role โดยเช็คกรณีที่ input โดน disabled (จะไม่มีค่าใน FormData)
+    const rawUsername = formData.get('username') as string | null;
+    const cleanUsername = rawUsername ? rawUsername.trim().toLowerCase() : (modal.data?.username || '');
+    
+    const rawRole = formData.get('role') as string | null;
+    const finalRole = (rawRole || modal.data?.role || 'user') as UserRole;
     
     const userData: AppUser = {
       id: modal.data?.id || generateNextUserId(),
@@ -1311,7 +1388,7 @@ function App() {
       phone: formData.get('phone') as string,
       facebook: formData.get('facebook') as string,
       address: formData.get('address') as string,
-      role: formData.get('role') as UserRole,
+      role: finalRole,
       avatar: modal.data?.avatar || `https://ui-avatars.com/api/?name=${formData.get('name')}&background=random&bold=true`
     };
 
@@ -2472,7 +2549,10 @@ function App() {
       {isUserMenuOpen && (
         <>
           <div className="md:hidden fixed inset-0 z-[95]" onClick={() => setIsUserMenuOpen(false)}></div>
-          <div className="md:hidden fixed right-4 bottom-[calc(max(env(safe-area-inset-bottom),16px)+85px)] w-48 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-bottom-2 duration-200 origin-bottom-right">
+          <div 
+            className="md:hidden fixed right-4 w-48 bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-slate-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-bottom-2 duration-200 origin-bottom-right"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
+          >
             <button 
               onClick={() => { handleTabSwitch('profile'); setIsUserMenuOpen(false); }} 
               className="w-full text-left px-4 py-3.5 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-fuchsia-600 flex items-center gap-2.5 transition-colors"
@@ -2499,7 +2579,10 @@ function App() {
       )}
 
       {/* MOBILE FLOATING NAV (Liquid Tab Bar Animation) */}
-      <div className="md:hidden fixed z-[90] left-0 right-0 bottom-0 pb-[max(env(safe-area-inset-bottom),16px)] px-4 flex justify-center pointer-events-none transition-transform duration-300">
+      <div 
+        className="md:hidden fixed z-[90] left-0 right-0 bottom-0 px-4 flex justify-center pointer-events-none transition-transform duration-300"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+      >
         <nav className="pointer-events-auto w-full max-w-[420px] bg-white/95 backdrop-blur-xl border border-slate-200/80 shadow-[0_20px_40px_rgba(0,0,0,0.12)] rounded-[2rem] h-16 flex relative px-2">
           
           {/* Liquid Bubble Indicator */}
@@ -4221,9 +4304,9 @@ function App() {
             </div>
             
             {/* Scrollable Content */}
-            <TableScrollWrapper className="p-5 sm:p-8 overflow-y-auto flex-1">
+            <TableScrollWrapper className="p-5 sm:p-8 overflow-y-auto flex-1 w-full block">
               <div 
-                className="rich-text-content text-slate-700 leading-relaxed font-medium text-sm sm:text-base break-words"
+                className="rich-text-content text-slate-700 leading-relaxed font-medium text-sm sm:text-base break-words w-full block"
                 dangerouslySetInnerHTML={{ __html: typeof sysSettings.announcementText === 'object' ? '' : String(sysSettings.announcementText || '') }}
               />
             </TableScrollWrapper>
