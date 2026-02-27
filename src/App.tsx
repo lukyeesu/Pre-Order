@@ -6,7 +6,8 @@ import {
   Phone, User, Truck, AlignLeft, Tags, GripHorizontal, ArrowLeft, 
   Receipt, Banknote, PenTool, Save, Tag, Landmark, Search, 
   Download, PieChart, TrendingUp, AlertTriangle, CheckCircle, Folder, Activity, Award, Filter,
-  Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle, Megaphone
+  Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle, Megaphone,
+  Bold, AlignCenter, AlignRight, List, Italic, Underline, ListOrdered
 } from 'lucide-react';
 
 // --- TYPES & INTERFACES ---
@@ -201,6 +202,77 @@ const TextAreaScrollable: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElem
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
   return <textarea ref={ref} {...props} />;
+};
+
+// --- RICH TEXT EDITOR COMPONENT ---
+const RichTextEditor = ({ value, onChange, placeholder }: { value: string, onChange: (v: string) => void, placeholder?: string }) => {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (editorRef.current && value !== editorRef.current.innerHTML) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, [value]);
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const executeCommand = (command: string, arg?: string) => {
+    document.execCommand(command, false, arg);
+    editorRef.current?.focus();
+    handleInput();
+  };
+
+  return (
+    <div className="flex flex-col w-full border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm focus-within:ring-2 focus-within:ring-amber-500/20 focus-within:border-amber-500 transition-all">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-1 p-2 border-b border-slate-100 bg-slate-50">
+        <select 
+          onChange={(e) => executeCommand('fontSize', e.target.value)} 
+          className="p-1 px-1.5 text-xs font-bold bg-white border border-slate-200 rounded-lg text-slate-700 outline-none hover:border-amber-300 transition-colors cursor-pointer"
+          title="ขนาดตัวอักษร"
+          defaultValue="3"
+        >
+          <option value="1">เล็กสุด</option>
+          <option value="2">เล็ก</option>
+          <option value="3">ปกติ</option>
+          <option value="4">ใหญ่</option>
+          <option value="5">ใหญ่มาก</option>
+          <option value="6">หัวข้อ 2</option>
+          <option value="7">หัวข้อ 1</option>
+        </select>
+        <div className="w-px h-4 bg-slate-300 mx-1"></div>
+        <button type="button" onClick={() => executeCommand('bold')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="ตัวหนา"><Bold className="w-4 h-4"/></button>
+        <button type="button" onClick={() => executeCommand('italic')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="ตัวเอียง"><Italic className="w-4 h-4"/></button>
+        <button type="button" onClick={() => executeCommand('underline')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="ขีดเส้นใต้"><Underline className="w-4 h-4"/></button>
+        <div className="w-px h-4 bg-slate-300 mx-1"></div>
+        <button type="button" onClick={() => executeCommand('justifyLeft')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="จัดชิดซ้าย"><AlignLeft className="w-4 h-4"/></button>
+        <button type="button" onClick={() => executeCommand('justifyCenter')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="จัดกึ่งกลาง"><AlignCenter className="w-4 h-4"/></button>
+        <button type="button" onClick={() => executeCommand('justifyRight')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="จัดชิดขวา"><AlignRight className="w-4 h-4"/></button>
+        <div className="w-px h-4 bg-slate-300 mx-1"></div>
+        <button type="button" onClick={() => executeCommand('insertUnorderedList')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="รายการแบบจุด"><List className="w-4 h-4"/></button>
+        <button type="button" onClick={() => executeCommand('insertOrderedList')} className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-700 transition-colors" title="รายการแบบตัวเลข"><ListOrdered className="w-4 h-4"/></button>
+        <div className="w-px h-4 bg-slate-300 mx-1"></div>
+        <div className="relative flex items-center" title="สีตัวอักษร">
+           <input type="color" onChange={(e) => executeCommand('foreColor', e.target.value)} className="w-7 h-7 p-0 border-0 rounded cursor-pointer bg-transparent" />
+        </div>
+      </div>
+      {/* Editor Area */}
+      <div 
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
+        onBlur={handleInput}
+        onWheel={(e) => e.stopPropagation()}
+        className="p-4 min-h-[150px] overflow-y-auto resize-y outline-none text-sm text-slate-800 leading-relaxed rich-text-content"
+        style={{ minHeight: '150px' }}
+        data-placeholder={placeholder}
+      />
+    </div>
+  );
 };
 
 // --- IMAGE ZOOM COMPONENT ---
@@ -400,6 +472,27 @@ function App() {
         .font-bold { font-weight: 500 !important; }       /* ลดจาก 700 -> 500 (Medium) เหมาะมากสำหรับหัวตารางและปุ่ม */
         .font-semibold { font-weight: 500 !important; }   /* ลดจาก 600 -> 500 (Medium) */
         .font-medium { font-weight: 400 !important; }     /* ลดจาก 500 -> 400 (Regular) ทำให้ข้อความรองอ่านง่ายขึ้น */
+        
+        /* สไตล์เสริมสำหรับ Rich Text Editor */
+        div[contentEditable]:empty:before {
+          content: attr(data-placeholder);
+          color: #94a3b8;
+          pointer-events: none;
+          display: block;
+        }
+        .rich-text-content ul { list-style-type: disc !important; padding-left: 1.5rem !important; margin-top: 0.25rem; margin-bottom: 0.25rem; }
+        .rich-text-content ol { list-style-type: decimal !important; padding-left: 1.5rem !important; margin-top: 0.25rem; margin-bottom: 0.25rem; }
+        .rich-text-content b, .rich-text-content strong { font-weight: bold !important; }
+        .rich-text-content i, .rich-text-content em { font-style: italic !important; }
+        .rich-text-content u { text-decoration: underline !important; }
+        .rich-text-content font[size="1"] { font-size: 12px !important; line-height: 1.4 !important; }
+        .rich-text-content font[size="2"] { font-size: 14px !important; line-height: 1.4 !important; }
+        .rich-text-content font[size="3"] { font-size: 16px !important; line-height: 1.5 !important; }
+        .rich-text-content font[size="4"] { font-size: 18px !important; line-height: 1.5 !important; }
+        .rich-text-content font[size="5"] { font-size: 24px !important; line-height: 1.4 !important; }
+        .rich-text-content font[size="6"] { font-size: 32px !important; line-height: 1.3 !important; }
+        .rich-text-content font[size="7"] { font-size: 40px !important; line-height: 1.2 !important; }
+        .rich-text-content div, .rich-text-content p { min-height: 1rem; }
       `;
       document.head.appendChild(style);
     }
@@ -3671,8 +3764,12 @@ function App() {
                   </div>
                   {sysSettings.isAnnouncementActive && (
                     <div className="mt-2">
-                      <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">ข้อความบนป๊อปอัพ (รองรับการขึ้นบรรทัดใหม่)</label>
-                      <TextAreaScrollable rows={4} value={typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')} onChange={(e) => setSysSettings({...sysSettings, announcementText: e.target.value})} placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." className="w-full p-4 bg-white border border-slate-200 rounded-xl text-slate-800 font-medium text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all shadow-sm resize-none overflow-y-auto" />
+                      <label className="block text-slate-500 font-mono text-xs uppercase tracking-widest mb-2 font-bold">ข้อความบนป๊อปอัพ (รองรับการขึ้นบรรทัดใหม่และจัดรูปแบบ)</label>
+                      <RichTextEditor 
+                        value={typeof sysSettings.announcementText === 'object' ? '' : String(sysSettings.announcementText || '')} 
+                        onChange={(val) => setSysSettings({...sysSettings, announcementText: val})} 
+                        placeholder="พิมพ์ข้อความที่ต้องการประกาศให้ลูกค้าทราบ..." 
+                      />
                     </div>
                   )}
                 </div>
@@ -4125,9 +4222,10 @@ function App() {
             
             {/* Scrollable Content */}
             <TableScrollWrapper className="p-5 sm:p-8 overflow-y-auto flex-1">
-              <div className="text-slate-700 whitespace-pre-wrap leading-relaxed font-medium text-sm sm:text-base">
-                {typeof sysSettings.announcementText === 'object' ? JSON.stringify(sysSettings.announcementText) : String(sysSettings.announcementText || '')}
-              </div>
+              <div 
+                className="rich-text-content text-slate-700 leading-relaxed font-medium text-sm sm:text-base break-words"
+                dangerouslySetInnerHTML={{ __html: typeof sysSettings.announcementText === 'object' ? '' : String(sysSettings.announcementText || '') }}
+              />
             </TableScrollWrapper>
             
             {/* Footer Action */}
