@@ -1481,13 +1481,32 @@ function App() {
   // --- ORDER ACTION HELPERS ---
   const handleShareOrder = (e: React.MouseEvent, order: Order) => {
     e.stopPropagation();
-    const itemsText = order.items.map(i => `- ${i.name} ${i.variation ? `(${i.variation})` : ''} x${i.qty}`).join('\n');
+    
+    let totalItemsPrice = 0;
+    let totalCarryingFee = 0;
+
+    const itemsText = order.items.map(i => {
+      const itemPrice = i.price * i.qty;
+      const itemCarry = (i.carryingFee || 0) * i.qty;
+      totalItemsPrice += itemPrice;
+      totalCarryingFee += itemCarry;
+      
+      let line = `- ${i.name} ${i.variation ? `(${i.variation})` : ''} x${i.qty} = ฿${itemPrice.toLocaleString()}`;
+      if (itemCarry > 0) {
+        line += ` + ค่าหิ้ว ${itemCarry.toLocaleString()}`;
+      }
+      return line;
+    }).join('\n');
+
     const statusLabel = orderStatuses.find(s => s.id === order.status)?.label || order.status;
     const deliveryMethodLabel = order.deliveryMethod === 'pickup' ? 'นัดรับ' : 'จัดส่ง';
     const deliveryDateStr = order.deliveryDate ? `\n📅 วันที่: ${order.deliveryDate}` : '';
     const phoneStr = order.phone ? `\n📞 เบอร์โทร: ${order.phone}` : '';
     
-    let textToShare = `📦 ออเดอร์: ${order.id}\n👤 ลูกค้า: ${order.customer}${phoneStr}\n🚚 การรับสินค้า: ${deliveryMethodLabel}${deliveryDateStr}\n📍 ที่อยู่จัดส่ง: ${order.address || '-'}\n💰 ยอดรวม: ฿${order.total.toLocaleString()}\n📌 สถานะ: ${statusLabel}\n\n📝 รายการสินค้า:\n${itemsText}`;
+    const shippingFeeDisplay = Number(order.shippingFee) > 0 ? Number(order.shippingFee).toLocaleString() : '0';
+    const discountDisplay = Number(order.discount) > 0 ? `\nส่วนลด ${Number(order.discount).toLocaleString()}.-` : '';
+    
+    let textToShare = `📦 ออเดอร์: ${order.id}\n👤 ลูกค้า: ${order.customer}${phoneStr}\n🚚 การรับสินค้า: ${deliveryMethodLabel}${deliveryDateStr}\n📍 ที่อยู่จัดส่ง: ${order.address || '-'}\n💰 ยอดรวม: ฿${order.total.toLocaleString()}\n📌 สถานะ: ${statusLabel}\n\n📝 รายการสินค้า:\n${itemsText}\n\nสรุปยอด\nค่าสินค้า ${totalItemsPrice.toLocaleString()}.-\nค่าหิ้ว ${totalCarryingFee.toLocaleString()}.-\nค่าจัดส่ง ${shippingFeeDisplay}.-${discountDisplay}\nรวม ${order.total.toLocaleString()}.-`;
     
     // แนบข้อมูลการชำระเงินของร้าน ถ้ามีการตั้งค่าไว้
     if (sysSettings.storeBankName || sysSettings.storeBankAccount || sysSettings.storeAccountName) {
