@@ -504,11 +504,16 @@ function App() {
           pointer-events: none;
           display: block;
         }
+        
+        /* บังคับไม่ให้เบราว์เซอร์มือถือ (Safari/Chrome) แอบขยายขนาดฟอนต์เองในบางบรรทัด */
+        .rich-text-content, .rich-text-content * {
+          -webkit-text-size-adjust: 100% !important;
+          text-size-adjust: 100% !important;
+        }
+
         .rich-text-content {
           word-break: break-word;
           overflow-wrap: break-word;
-          -webkit-text-size-adjust: 100%;
-          text-size-adjust: 100%;
         }
         
         /* Nested Unordered Lists: Bullet -> Dash -> Square -> Check */
