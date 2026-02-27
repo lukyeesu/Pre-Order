@@ -511,6 +511,16 @@ function App() {
           text-size-adjust: 100% !important;
         }
 
+        /* ฐานฟอนต์เริ่มต้นที่ 16px เพื่อล้างค่าจากบรรทัดที่เกิดจากการ Copy-Paste หรือกด Enter */
+        .rich-text-content, 
+        .rich-text-content div, 
+        .rich-text-content p, 
+        .rich-text-content span, 
+        .rich-text-content li {
+          font-size: 16px !important;
+          line-height: 1.6 !important;
+        }
+
         .rich-text-content {
           word-break: break-word;
           overflow-wrap: break-word;
@@ -550,13 +560,15 @@ function App() {
         .rich-text-content i, .rich-text-content em { font-style: italic !important; }
         .rich-text-content u { text-decoration: underline !important; }
         .rich-text-content s, .rich-text-content strike { text-decoration: line-through !important; }
-        .rich-text-content font[size="1"] { font-size: 12px !important; line-height: 1.4 !important; }
-        .rich-text-content font[size="2"] { font-size: 14px !important; line-height: 1.4 !important; }
-        .rich-text-content font[size="3"] { font-size: 16px !important; line-height: 1.5 !important; }
-        .rich-text-content font[size="4"] { font-size: 18px !important; line-height: 1.5 !important; }
-        .rich-text-content font[size="5"] { font-size: 24px !important; line-height: 1.4 !important; }
-        .rich-text-content font[size="6"] { font-size: 32px !important; line-height: 1.3 !important; }
-        .rich-text-content font[size="7"] { font-size: 40px !important; line-height: 1.2 !important; }
+        
+        /* ขยายผลของการบังคับขนาดฟอนต์ให้ครอบคลุมถึง tag ย่อยข้างใน <font> ด้วย ป้องกันการถูกล้างค่า */
+        .rich-text-content font[size="1"], .rich-text-content font[size="1"] * { font-size: 12px !important; line-height: 1.4 !important; }
+        .rich-text-content font[size="2"], .rich-text-content font[size="2"] * { font-size: 14px !important; line-height: 1.4 !important; }
+        .rich-text-content font[size="3"], .rich-text-content font[size="3"] * { font-size: 16px !important; line-height: 1.6 !important; }
+        .rich-text-content font[size="4"], .rich-text-content font[size="4"] * { font-size: 18px !important; line-height: 1.5 !important; }
+        .rich-text-content font[size="5"], .rich-text-content font[size="5"] * { font-size: 24px !important; line-height: 1.4 !important; }
+        .rich-text-content font[size="6"], .rich-text-content font[size="6"] * { font-size: 32px !important; line-height: 1.3 !important; }
+        .rich-text-content font[size="7"], .rich-text-content font[size="7"] * { font-size: 40px !important; line-height: 1.2 !important; }
         
         /* ให้ List Marker (จุด Bullet และตัวเลข) อิงขนาดและความหนาตามเนื้อหาข้างใน */
         .rich-text-content li:has(b), .rich-text-content li:has(strong) { font-weight: bold !important; }
