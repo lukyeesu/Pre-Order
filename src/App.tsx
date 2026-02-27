@@ -291,7 +291,7 @@ const RichTextEditor = ({ value, onChange, placeholder }: { value: string, onCha
         onInput={handleInput}
         onBlur={handleInput}
         onWheel={(e) => e.stopPropagation()}
-        className="p-4 min-h-[150px] overflow-y-auto resize-y outline-none text-sm sm:text-base text-slate-800 leading-relaxed rich-text-content w-full block"
+        className="p-4 min-h-[150px] overflow-y-auto resize-y outline-none text-sm sm:text-base text-slate-800 leading-relaxed rich-text-content w-full block text-justify"
         style={{ minHeight: '150px' }}
         data-placeholder={placeholder}
       />
@@ -710,17 +710,19 @@ function App() {
   }, [isSidebarHovered]);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
       if (sidebarDragStartX === null) return;
       setIsDraggingSidebar(true);
-      const deltaX = e.clientX - sidebarDragStartX;
+      // เช็คว่าเป็น Touch Event (ใช้นิ้ว) หรือ Mouse Event (ใช้เมาส์)
+      const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+      const deltaX = clientX - sidebarDragStartX;
       setSidebarDragOffset(deltaX);
     };
 
     const handleMouseUp = () => {
       if (sidebarDragStartX === null) return;
 
-      // กำหนดจุดที่ให้ Snap กลับหรือสลับสถานะเมื่อปล่อยเมาส์
+      // กำหนดจุดที่ให้ Snap กลับหรือสลับสถานะเมื่อปล่อยเมาส์ หรือ ปล่อยนิ้ว
       if (!isSidebarHovered && sidebarDragOffset > 50) {
         setIsSidebarHovered(true);
       } else if (isSidebarHovered && sidebarDragOffset < -50) {
@@ -736,10 +738,15 @@ function App() {
     if (sidebarDragStartX !== null) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
+      // เพิ่ม Event สำหรับการสัมผัสบน Tablet/Mobile
+      window.addEventListener('touchmove', handleMouseMove, { passive: true });
+      window.addEventListener('touchend', handleMouseUp);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleMouseMove);
+      window.removeEventListener('touchend', handleMouseUp);
     };
   }, [sidebarDragStartX, isSidebarHovered, sidebarDragOffset]);
 
@@ -1062,8 +1069,7 @@ function App() {
     const cleanUsername = loginUsername.trim().toLowerCase();
     const user = usersList.find(u => u.username === cleanUsername);
     
-    // แจ้งเตือนแบบรวม (Username ไม่มี หรือ Password ไม่ตรง) และแปลงเป็น String ก่อนเทียบเสมอ
-    if (!user || (user.password && String(user.password) !== String(loginPassword))) {
+    if (!user || user.password !== loginPassword) {
       showToast('ข้อมูลผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
       setIsProcessing(false); setIsLoading(false);
       return;
@@ -2429,6 +2435,7 @@ function App() {
 
       <aside 
         onMouseDown={(e) => setSidebarDragStartX(e.clientX)}
+        onTouchStart={(e) => setSidebarDragStartX(e.touches[0].clientX)}
         style={{ '--sidebar-width': `${dynamicSidebarWidth}px` } as React.CSSProperties}
         className={`w-full bg-white/80 backdrop-blur-xl border-b md:border-b-0 md:border-r border-slate-200/80 flex flex-col z-40 shadow-[4px_0_24px_rgba(0,0,0,0.02)] flex-shrink-0 select-none cursor-default md:w-[var(--sidebar-width)] ${!isDraggingSidebar ? 'transition-[width] duration-300 ease-in-out' : ''} relative`}
       >
@@ -4311,7 +4318,7 @@ function App() {
             {/* Scrollable Content */}
             <TableScrollWrapper className="p-5 sm:p-8 overflow-y-auto flex-1 w-full block">
               <div 
-                className="rich-text-content text-slate-700 leading-relaxed font-medium text-sm sm:text-base break-words w-full block"
+                className="rich-text-content text-slate-700 leading-relaxed font-medium text-sm sm:text-base break-words w-full block text-justify"
                 dangerouslySetInnerHTML={{ __html: typeof sysSettings.announcementText === 'object' ? '' : String(sysSettings.announcementText || '') }}
               />
             </TableScrollWrapper>
