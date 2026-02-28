@@ -2493,7 +2493,7 @@ function App() {
             >
               <User className="w-4 h-4" /> จัดการโปรไฟล์
             </button>
-            {currentUser.role === 'admin' && (
+            {currentUser?.role === 'admin' && (
               <button 
                 onClick={() => { handleTabSwitch('settings'); setIsUserMenuOpen(false); }} 
                 className="w-full text-left px-4 py-3.5 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2.5 transition-colors"
@@ -3686,7 +3686,7 @@ function App() {
         )}
 
         {/* SETTINGS TAB */}
-        {activeTab === 'settings' && currentUser.role === 'admin' && (
+        {activeTab === 'settings' && currentUser?.role === 'admin' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
             <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6">
               <h2 className="text-3xl font-bold text-slate-800 tracking-wide">ตั้งค่าระบบ <span className="text-slate-400">/ SYSTEM</span></h2>
@@ -3921,7 +3921,7 @@ function App() {
         )}
 
         {/* USERS TAB (ADMIN ONLY) */}
-        {activeTab === 'users' && currentUser.role === 'admin' && (
+        {activeTab === 'users' && currentUser?.role === 'admin' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
             <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <h2 className="text-3xl font-bold text-slate-800 tracking-wide">
@@ -3970,7 +3970,7 @@ function App() {
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button onClick={(e) => { e.stopPropagation(); openModal('user_form', user); }} className="p-2.5 text-slate-400 hover:text-amber-600 bg-slate-50 border border-slate-100 hover:bg-amber-50 rounded-lg transition-colors"><Edit className="w-3.5 h-3.5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); openModal('delete_user_confirm', user); }} disabled={user.id === currentUser.id} className="p-2.5 text-slate-400 hover:text-rose-600 bg-slate-50 border border-slate-100 hover:bg-rose-50 disabled:opacity-30 disabled:bg-transparent rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); openModal('delete_user_confirm', user); }} disabled={user.id === currentUser?.id} className="p-2.5 text-slate-400 hover:text-rose-600 bg-slate-50 border border-slate-100 hover:bg-rose-50 disabled:opacity-30 disabled:bg-transparent rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                   </div>
@@ -4029,7 +4029,7 @@ function App() {
                           <td className="px-6 py-4 pr-8 align-top text-center">
                             <div className="flex items-center justify-center gap-2">
                               <button onClick={(e) => { e.stopPropagation(); openModal('user_form', user); }} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
-                              <button onClick={(e) => { e.stopPropagation(); openModal('delete_user_confirm', user); }} disabled={user.id === currentUser.id} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                              <button onClick={(e) => { e.stopPropagation(); openModal('delete_user_confirm', user); }} disabled={user.id === currentUser?.id} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                             </div>
                           </td>
                         </tr>
@@ -4135,7 +4135,7 @@ function App() {
         )}
 
         {/* USER PROFILE TAB */}
-        {activeTab === 'profile' && (
+        {activeTab === 'profile' && currentUser && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
             <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex justify-between items-center">
               <h2 className="text-3xl font-bold text-slate-800 tracking-wide flex items-center gap-3">
@@ -4161,16 +4161,16 @@ function App() {
                       const file = e.target.files?.[0];
                       if (file) handleProfileImageFile(file);
                     }} />
-                    <img src={profileAvatarUrl || currentUser.avatar} alt="Profile" className="w-32 h-32 rounded-full border-4 border-white shadow-md object-cover group-hover:opacity-80 transition-opacity"/>
+                    <img src={profileAvatarUrl || currentUser?.avatar} alt="Profile" className="w-32 h-32 rounded-full border-4 border-white shadow-md object-cover group-hover:opacity-80 transition-opacity"/>
                     <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity flex-col gap-1">
                       <PenTool className="w-6 h-6 text-white"/>
                       <span className="text-[10px] text-white font-bold tracking-wider">ลากมาวาง</span>
                     </div>
                   </label>
-                  <h3 className="text-2xl font-black text-slate-800 mb-1">{currentUser.name}</h3>
-                  <p className="text-sm text-slate-500 font-mono mb-4">@{currentUser.username}</p>
+                  <h3 className="text-2xl font-black text-slate-800 mb-1">{currentUser?.name}</h3>
+                  <p className="text-sm text-slate-500 font-mono mb-4">@{currentUser?.username}</p>
                   <span className="px-4 py-1.5 bg-fuchsia-50 text-fuchsia-600 rounded-xl text-xs font-bold border border-fuchsia-100 mb-6 text-center">
-                    {currentUser.role === 'admin' ? 'ผู้ดูแลระบบ (Admin)' : currentUser.role === 'staff' ? 'เจ้าหน้าที่ (Staff)' : 'สมาชิกระดับทั่วไป (User)'}
+                    {currentUser?.role === 'admin' ? 'ผู้ดูแลระบบ (Admin)' : currentUser?.role === 'staff' ? 'เจ้าหน้าที่ (Staff)' : 'สมาชิกระดับทั่วไป (User)'}
                   </span>
                 </div>
                 
@@ -4178,20 +4178,20 @@ function App() {
                   <div className="bg-slate-50/80 p-6 rounded-2xl border border-slate-100 space-y-4">
                     <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200/60 pb-3"><User className="w-4 h-4 text-fuchsia-500"/> ข้อมูลลูกค้า & ชำระเงิน</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">ชื่อ-นามสกุล</label><input name="name" defaultValue={currentUser.name} required className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">อีเมล</label><input name="email" type="email" defaultValue={currentUser.email || ''} required className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Facebook</label><input name="facebook" defaultValue={currentUser.facebook || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">เบอร์โทรศัพท์ติดต่อ</label><input name="phone" defaultValue={currentUser.phone || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">ชื่อ-นามสกุล</label><input name="name" defaultValue={currentUser?.name} required className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">อีเมล</label><input name="email" type="email" defaultValue={currentUser?.email || ''} required className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Facebook</label><input name="facebook" defaultValue={currentUser?.facebook || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">เบอร์โทรศัพท์ติดต่อ</label><input name="phone" defaultValue={currentUser?.phone || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200/60">
                       <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1.5">ธนาคาร</label>
-                        <select name="bankName" defaultValue={currentUser.bankName || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700">
+                        <select name="bankName" defaultValue={currentUser?.bankName || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700">
                           <option value="">ไม่ระบุ</option>
                           {bankOptions.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
                         </select>
                       </div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">เลขบัญชี</label><input name="bankAccount" defaultValue={currentUser.bankAccount || ''} placeholder="xxx-x-xxxxx-x" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">เลขบัญชี</label><input name="bankAccount" defaultValue={currentUser?.bankAccount || ''} placeholder="xxx-x-xxxxx-x" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
                     </div>
                   </div>
 
@@ -4199,7 +4199,7 @@ function App() {
                     <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200/60 pb-3"><Truck className="w-4 h-4 text-fuchsia-500"/> ข้อมูลจัดส่ง</h4>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1.5">ที่อยู่สำหรับจัดส่ง (เริ่มต้น)</label>
-                      <textarea name="address" rows={3} defaultValue={currentUser.address || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all resize-none font-bold text-slate-700"></textarea>
+                      <textarea name="address" rows={3} defaultValue={currentUser?.address || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all resize-none font-bold text-slate-700"></textarea>
                     </div>
                   </div>
                   
@@ -5007,7 +5007,7 @@ function App() {
                     <div><label className="text-xs font-bold text-slate-600 mb-1 block">Username (ใช้เข้าระบบ)</label><input name="username" defaultValue={modal.data?.username} required disabled={!!modal.data} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed" /></div>
                     <div>
                        <label className="text-xs font-bold text-slate-600 mb-1 block">สิทธิ์การใช้งาน (Role)</label>
-                       <select name="role" defaultValue={modal.data?.role || 'user'} disabled={modal.data?.id === currentUser.id} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none disabled:opacity-60 disabled:cursor-not-allowed">
+                       <select name="role" defaultValue={modal.data?.role || 'user'} disabled={modal.data?.id === currentUser?.id} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none disabled:opacity-60 disabled:cursor-not-allowed">
                          <option value="user">User (ลูกค้าทั่วไป)</option>
                          <option value="staff">Staff (เจ้าหน้าที่)</option>
                          <option value="admin">Admin (ผู้ดูแลระบบ)</option>
