@@ -939,8 +939,7 @@ function App() {
 
   // Lenis Smooth Scroll Initialization
   useEffect(() => {
-    if (!currentUser) return; // Initialize เฉพาะตอนเข้าสู่ระบบแล้ว
-
+    // นำเงื่อนไข if (!currentUser) return; ออก เพื่อให้ลูกค้าระดับ Guest ใช้งาน Smooth Scroll ได้
     const initLenis = () => {
       if ((window as any).Lenis && mainScrollRef.current && !lenisRef.current) {
         const lenis = new (window as any).Lenis({
@@ -1094,6 +1093,17 @@ function App() {
       localStorage.setItem('savedUserId', user.id);
     } else {
       localStorage.removeItem('savedUserId');
+    }
+
+    // ถ้าล็อกอินสำเร็จผ่าน Modal (ขณะกำลังดูสินค้า) ให้ปิด Modal และอยู่ในหน้าเดิม
+    if (modal.isOpen && modal.type === 'auth') {
+       closeModal();
+       showToast(`เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ ${user.name}`);
+       setIsProcessing(false); setIsLoading(false);
+       if (user.role !== 'user') {
+           setTimeout(() => handleTabSwitch('dashboard'), 300);
+       }
+       return;
     }
 
     handleTabSwitch(user.role === 'user' ? 'store' : 'dashboard');
@@ -1747,6 +1757,13 @@ function App() {
   };
 
   const addToCart = (product: Product, variationName = '') => {
+    // เพิ่มการตรวจสอบ: ถ้ายังไม่ล็อกอิน ให้เด้ง Modal เข้าสู่ระบบขึ้นมาแทน
+    if (!currentUser) {
+      setAuthMode('login');
+      openModal('auth');
+      return;
+    }
+
     setCart(prev => {
       const totalInCart = prev.filter(item => item.product.id === product.id).reduce((sum, item) => sum + item.qty, 0);
       if (totalInCart >= product.stock) {
@@ -2237,7 +2254,7 @@ function App() {
     isAdminOrStaff && { id: 'orders', label: 'คำสั่งซื้อ', icon: ClipboardList, activeClass: 'text-purple-700' },
     currentUser?.role === 'admin' && { id: 'users', label: 'จัดการผู้ใช้', icon: Users, activeClass: 'text-amber-600' },
     currentUser?.role === 'admin' && { id: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, activeClass: 'text-slate-800' },
-    !isAdminOrStaff && { id: 'my_orders', label: 'คำสั่งซื้อของฉัน', icon: ShoppingBag, activeClass: 'text-pink-600' },
+    currentUser && !isAdminOrStaff && { id: 'my_orders', label: 'คำสั่งซื้อของฉัน', icon: ShoppingBag, activeClass: 'text-pink-600' },
   ].filter(Boolean) as any[];
 
   const mobileNavItems = [
@@ -2245,9 +2262,9 @@ function App() {
     { id: 'store', label: 'หน้าร้าน', icon: Store, activeClass: 'text-sky-600' },
     isAdminOrStaff && { id: 'products', label: 'คลังสินค้า', icon: Box, activeClass: 'text-blue-600' },
     isAdminOrStaff && { id: 'orders', label: 'คำสั่งซื้อ', icon: ClipboardList, activeClass: 'text-purple-600' },
-    !isAdminOrStaff && { id: 'my_orders', label: 'สั่งซื้อของฉัน', icon: ShoppingBag, activeClass: 'text-pink-600' },
+    currentUser && !isAdminOrStaff && { id: 'my_orders', label: 'สั่งซื้อของฉัน', icon: ShoppingBag, activeClass: 'text-pink-600' },
     currentUser?.role === 'admin' && { id: 'users', label: 'ผู้ใช้', icon: Users, activeClass: 'text-amber-600' },
-    { id: 'profile_menu', label: 'โปรไฟล์', icon: User, activeClass: 'text-fuchsia-600' },
+    { id: 'profile_menu', label: currentUser ? 'โปรไฟล์' : 'เข้าสู่ระบบ', icon: User, activeClass: 'text-fuchsia-600' },
   ].filter(Boolean) as any[];
 
   const desktopActiveIndex = desktopNavItems.findIndex(i => i.id === activeTab);
@@ -2280,153 +2297,7 @@ function App() {
     );
   }
 
-  // --- RENDER LOGIN IF NOT LOGGED IN ---
-  if (!currentUser) {
-    return (
-      <div className="h-screen w-full bg-slate-50 flex items-center justify-center relative font-sans selection:bg-blue-500/20 overflow-hidden">
-        
-        {/* Global Loading Overlay for Auth Actions */}
-        {isLoading && (
-          <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-[2px] z-[200] flex items-center justify-center animate-in fade-in duration-200">
-             <div className="bg-white p-6 rounded-3xl shadow-2xl flex flex-col items-center gap-4 border border-slate-100 animate-in zoom-in-95 duration-300">
-               <div className="p-3 bg-blue-50 rounded-2xl">
-                 <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-               </div>
-               <div className="text-center">
-                 <p className="text-sm font-black text-slate-800 tracking-wide">กำลังประมวลผล</p>
-                 <p className="text-[11px] font-bold text-slate-400 mt-1">Please wait...</p>
-               </div>
-             </div>
-          </div>
-        )}
-
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-400/20 blur-[120px] rounded-full pointer-events-none"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-400/20 blur-[120px] rounded-full pointer-events-none"></div>
-        
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[99999] flex flex-col items-center gap-2 pointer-events-none w-full max-w-md px-4">
-          {toasts.map(toast => (
-            <div key={toast.id} className={`animate-in slide-in-from-top-8 fade-in duration-500 ease-out flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] pointer-events-auto border backdrop-blur-xl w-fit max-w-full ${
-              toast.type === 'error' ? 'bg-rose-50/90 border-rose-200 text-rose-700' : 'bg-emerald-50/90 border-emerald-200 text-emerald-700'
-            }`}>
-              {toast.type === 'error' ? <AlertTriangle className="w-5 h-5 flex-shrink-0"/> : <CheckCircle className="w-5 h-5 flex-shrink-0"/>}
-              <span className="font-bold text-sm">{toast.message}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-white/80 backdrop-blur-xl p-8 sm:p-10 rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] border border-white w-full max-w-md relative z-10 mx-4 my-auto flex-shrink-0 max-h-[95vh] overflow-y-auto hide-scrollbar">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mb-4 shadow-sm border border-blue-100">
-              <ShoppingBag className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-black text-slate-800 tracking-wide">{sysSettings.storeName}</h1>
-            <p className="text-sm text-slate-500 font-medium mt-1">
-              {authMode === 'login' ? 'เข้าสู่ระบบเพื่อจัดการคำสั่งซื้อ' : authMode === 'register' ? 'สมัครสมาชิกใหม่' : 'รีเซ็ตรหัสผ่าน'}
-            </p>
-          </div>
-
-          {authMode === 'login' && (
-            <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in zoom-in-95 duration-700 ease-out">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Username</label>
-                <div className="relative">
-                  <User className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input 
-                    type="text" value={loginUsername} onChange={(e) => setLoginUsername(e.target.value)}
-                    placeholder="ชื่อผู้ใช้งาน" required
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" 
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Password</label>
-                <div className="relative">
-                  <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input 
-                    type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)}
-                    placeholder="รหัสผ่าน" required
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" 
-                  />
-                </div>
-                <div className="flex justify-between items-center mt-3 px-1">
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <div className="relative flex items-center justify-center">
-                      <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer appearance-none w-4 h-4 border-2 border-slate-300 rounded-md checked:bg-blue-500 checked:border-blue-500 transition-colors cursor-pointer" />
-                      <Check className="w-3 h-3 text-white absolute opacity-0 peer-checked:opacity-100 pointer-events-none" strokeWidth={3} />
-                    </div>
-                    <span className="text-xs font-bold text-slate-600 group-hover:text-slate-800 transition-colors">ให้อยู่ในระบบต่อ</span>
-                  </label>
-                  <button type="button" onClick={() => setAuthMode('forgot')} className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">ลืมรหัสผ่าน?</button>
-                </div>
-              </div>
-              <button type="submit" disabled={isProcessing} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3.5 rounded-xl shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-2 mt-4">
-                {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังเข้าสู่ระบบ...</> : <>เข้าสู่ระบบ <ArrowRight className="w-5 h-5" /></>}
-              </button>
-              <div className="text-center pt-2">
-                <span className="text-xs text-slate-500 font-medium">ยังไม่มีบัญชีใช่ไหม? </span>
-                <button type="button" onClick={() => setAuthMode('register')} className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">สมัครสมาชิกที่นี่</button>
-              </div>
-            </form>
-          )}
-
-          {authMode === 'register' && (
-            <form onSubmit={handleRegister} className="space-y-4 animate-in fade-in zoom-in-95 duration-700 ease-out">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5">ชื่อ-นามสกุล</label>
-                <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)} required placeholder="ระบุชื่อของคุณ" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5">อีเมล</label>
-                <input type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} required placeholder="example@email.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5">Username (ใช้เข้าระบบ)</label>
-                <input type="text" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} required placeholder="ระบุชื่อผู้ใช้สำหรับเข้าระบบ" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5">Password</label>
-                <input type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} required placeholder="รหัสผ่านอย่างน้อย 6 ตัวอักษร" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5">Confirm Password</label>
-                <input type="password" value={regConfirmPassword} onChange={(e) => setRegConfirmPassword(e.target.value)} required placeholder="ยืนยันรหัสผ่านอีกครั้ง" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
-              </div>
-              <button type="submit" disabled={isProcessing} className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold py-3.5 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition-all mt-4 flex justify-center items-center gap-2">
-                {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังลงทะเบียน...</> : 'ลงทะเบียน'}
-              </button>
-              <button type="button" onClick={() => setAuthMode('login')} className="w-full py-3 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
-                ยกเลิกและกลับไปหน้าเข้าสู่ระบบ
-              </button>
-            </form>
-          )}
-
-          {authMode === 'forgot' && (
-            <form onSubmit={handleForgotPassword} className="space-y-5 animate-in fade-in zoom-in-95 duration-700 ease-out">
-              <p className="text-sm text-slate-600 font-medium text-center px-4">กรุณาระบุอีเมลของคุณ ระบบจะทำการส่งลิงก์เพื่อตั้งรหัสผ่านใหม่ไปให้</p>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Email</label>
-                <div className="relative">
-                  <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input 
-                    type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="ระบุอีเมลที่ลงทะเบียนไว้" required
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" 
-                  />
-                </div>
-              </div>
-              <button type="submit" disabled={isProcessing} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3.5 rounded-xl shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-2">
-                {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังดำเนินการ...</> : 'ส่งลิงก์รีเซ็ตรหัสผ่าน'}
-              </button>
-              <button type="button" onClick={() => setAuthMode('login')} className="w-full py-3 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
-                กลับไปหน้าเข้าสู่ระบบ
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
-    );
-  }
-
+  // --- MAIN APP RENDER ---
   return (
     <div className="h-screen w-full bg-slate-50 text-slate-600 font-sans relative overflow-hidden flex flex-col md:flex-row selection:bg-blue-500/20 scroll-smooth">
       
@@ -2497,7 +2368,10 @@ function App() {
           </div>
 
           <button 
-            onClick={() => openModal('cart')}
+            onClick={() => {
+              if (!currentUser) { setAuthMode('login'); openModal('auth'); return; }
+              openModal('cart');
+            }}
             className="md:hidden relative p-2.5 bg-sky-50 text-sky-600 rounded-full hover:bg-sky-100 transition-colors shadow-sm border border-sky-100 mr-2"
           >
             <ShoppingCart className="w-6 h-6" />
@@ -2540,23 +2414,40 @@ function App() {
 
         <div className="relative hidden md:block border-t border-slate-200/80 h-[88px] flex-shrink-0">
           <div 
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            onClick={() => {
+              if (!currentUser) { setAuthMode('login'); openModal('auth'); }
+              else setIsUserMenuOpen(!isUserMenuOpen);
+            }}
             className={`absolute inset-0 m-4 flex items-center cursor-pointer hover:bg-slate-50 rounded-xl transition-colors`}
           >
             <div className="flex items-center justify-center w-[52px] h-full flex-shrink-0">
-              <img src={currentUser.avatar} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover"/>
+              {currentUser ? (
+                <img src={currentUser.avatar} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover"/>
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center border-2 border-white shadow-sm"><User className="w-5 h-5"/></div>
+              )}
             </div>
+            
             {/* User Details - Fade In/Out ผูกกับระยะการลากเมาส์ */}
-            <div 
-              style={isDraggingSidebar ? { opacity: dragProgress, transform: `translateX(${-16 * (1 - dragProgress)}px)` } : {}}
-              className={`absolute left-[60px] min-w-0 flex flex-col justify-center ${!isDraggingSidebar ? 'transition-all duration-300' : ''} ${!isDraggingSidebar && isSidebarHovered ? 'opacity-100 translate-x-0' : (!isDraggingSidebar ? 'opacity-0 -translate-x-4 pointer-events-none' : 'pointer-events-none')}`}
-            >
-              <p className="text-sm font-bold text-slate-800 truncate w-[140px]">{currentUser.name}</p>
-              <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1.5 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span> <span className="truncate">{currentUser.role.toUpperCase()}</span></p>
-            </div>
+            {!currentUser ? (
+              <div 
+                style={isDraggingSidebar ? { opacity: dragProgress, transform: `translateX(${-16 * (1 - dragProgress)}px)` } : {}}
+                className={`absolute left-[60px] min-w-0 flex flex-col justify-center ${!isDraggingSidebar ? 'transition-all duration-300' : ''} ${!isDraggingSidebar && isSidebarHovered ? 'opacity-100 translate-x-0' : (!isDraggingSidebar ? 'opacity-0 -translate-x-4 pointer-events-none' : 'pointer-events-none')}`}
+              >
+                 <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm whitespace-nowrap flex items-center gap-1.5"><Lock className="w-3.5 h-3.5"/> เข้าสู่ระบบ</button>
+              </div>
+            ) : (
+              <div 
+                style={isDraggingSidebar ? { opacity: dragProgress, transform: `translateX(${-16 * (1 - dragProgress)}px)` } : {}}
+                className={`absolute left-[60px] min-w-0 flex flex-col justify-center ${!isDraggingSidebar ? 'transition-all duration-300' : ''} ${!isDraggingSidebar && isSidebarHovered ? 'opacity-100 translate-x-0' : (!isDraggingSidebar ? 'opacity-0 -translate-x-4 pointer-events-none' : 'pointer-events-none')}`}
+              >
+                <p className="text-sm font-bold text-slate-800 truncate w-[140px]">{currentUser.name}</p>
+                <p className="text-[10px] text-emerald-500 font-bold flex items-center gap-1.5 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span> <span className="truncate">{currentUser.role.toUpperCase()}</span></p>
+              </div>
+            )}
           </div>
 
-          {isUserMenuOpen && (
+          {isUserMenuOpen && currentUser && (
             <>
               {/* Desktop Popover Menu */}
               <div className="hidden md:block fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setIsUserMenuOpen(false); }}></div>
@@ -2648,7 +2539,10 @@ function App() {
               <button 
                 key={item.id} 
                 onClick={() => {
-                  if (item.id === 'profile_menu') setIsUserMenuOpen(!isUserMenuOpen);
+                  if (item.id === 'profile_menu') {
+                    if (!currentUser) { setAuthMode('login'); openModal('auth'); }
+                    else setIsUserMenuOpen(!isUserMenuOpen);
+                  }
                   else handleTabSwitch(item.id);
                 }} 
                 className="relative z-10 flex-1 flex items-center justify-center h-full outline-none"
@@ -3429,7 +3323,10 @@ function App() {
               )}
             </div>
             
-            <button onClick={() => openModal('cart')} className="hidden md:flex fixed top-8 right-10 bg-sky-500 hover:bg-sky-600 text-white px-6 py-3.5 rounded-full shadow-[0_8px_30px_rgba(14,165,233,0.4)] hover:scale-105 transition-all duration-300 z-40 group items-center gap-3">
+            <button onClick={() => {
+              if (!currentUser) { setAuthMode('login'); openModal('auth'); return; }
+              openModal('cart');
+            }} className="hidden md:flex fixed top-8 right-10 bg-sky-500 hover:bg-sky-600 text-white px-6 py-3.5 rounded-full shadow-[0_8px_30px_rgba(14,165,233,0.4)] hover:scale-105 transition-all duration-300 z-40 group items-center gap-3">
               <div className="relative">
                 <ShoppingCart className="w-6 h-6" />
                 {cartStats.cartItemCount > 0 && (
@@ -4808,7 +4705,16 @@ function App() {
                       ) : (
                         <button onClick={() => {
                           if (modal.data?.variations?.length > 0 && !selectedVariation) { showToast('กรุณาเลือกตัวเลือกสินค้าก่อน', 'warning'); return; }
-                          addToCart(modal.data, selectedVariation); closeModal();
+                          
+                          // แก้ไข: ดักจับว่าถ้ายังไม่ล็อกอิน ให้เปิดหน้าล็อกอิน แต่ถ้าล็อกอินแล้วค่อยหยิบใส่ตะกร้าและปิดกล่อง
+                          if (!currentUser) {
+                            setAuthMode('login');
+                            openModal('auth');
+                          } else {
+                            addToCart(modal.data, selectedVariation); 
+                            closeModal();
+                          }
+
                         }} disabled={modal.data?.status === 'sold_out' || modal.data?.stock <= 0}
                         className="w-full sm:w-[220px] bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 active:scale-[0.98] disabled:active:scale-100 text-white py-3.5 sm:py-3 rounded-xl font-bold shadow-[0_4px_15px_rgba(14,165,233,0.3)] disabled:shadow-none transition-all flex justify-center items-center gap-2 text-sm sm:text-sm whitespace-nowrap">{modal.data?.status === 'sold_out' || modal.data?.stock <= 0 ? 'สินค้าหมด' : 'เพิ่มลงตะกร้า'} <ShoppingCart className="w-5 h-5 flex-shrink-0" /></button>
                       )}
@@ -5156,6 +5062,126 @@ function App() {
                 <div className="flex justify-center gap-4">
                   <button onClick={closeModal} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-colors">ยกเลิก</button>
                   <button onClick={() => handleDeleteOrder(modal.data.id)} className="px-6 py-2.5 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-[0_4px_15px_rgba(225,29,72,0.3)] transition-all">ยืนยันการลบถาวร</button>
+                </div>
+              </div>
+            )}
+
+            {/* AUTH MODAL (Login/Register/Forgot) */}
+            {modal.type === 'auth' && (
+              <div className="flex flex-col w-full h-full bg-white relative rounded-3xl overflow-hidden">
+                <button type="button" onClick={closeModal} className="absolute top-4 right-4 sm:top-5 sm:right-5 p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors z-20"><X className="w-5 h-5"/></button>
+                <div className="flex-1 overflow-y-auto p-6 sm:p-10 hide-scrollbar flex items-center justify-center relative">
+                   <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-400/10 blur-[100px] rounded-full pointer-events-none"></div>
+                   <div className="w-full max-w-sm mx-auto relative z-10">
+                     <div className="text-center mb-8">
+                       <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mb-4 shadow-sm border border-blue-100">
+                         <ShoppingBag className="w-8 h-8" />
+                       </div>
+                       <h1 className="text-2xl font-black text-slate-800 tracking-wide">{sysSettings.storeName}</h1>
+                       <p className="text-sm text-slate-500 font-medium mt-1">
+                         {authMode === 'login' ? 'กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ' : authMode === 'register' ? 'สมัครสมาชิกใหม่' : 'รีเซ็ตรหัสผ่าน'}
+                       </p>
+                     </div>
+
+                     {authMode === 'login' && (
+                        <form onSubmit={handleLogin} className="space-y-5 animate-in fade-in zoom-in-95 duration-700 ease-out">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Username</label>
+                            <div className="relative">
+                              <User className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
+                              <input 
+                                type="text" value={loginUsername} onChange={(e) => setLoginUsername(e.target.value)}
+                                placeholder="ชื่อผู้ใช้งาน" required
+                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" 
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Password</label>
+                            <div className="relative">
+                              <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
+                              <input 
+                                type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)}
+                                placeholder="รหัสผ่าน" required
+                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" 
+                              />
+                            </div>
+                            <div className="flex justify-between items-center mt-3 px-1">
+                              <label className="flex items-center gap-2 cursor-pointer group">
+                                <div className="relative flex items-center justify-center">
+                                  <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="peer appearance-none w-4 h-4 border-2 border-slate-300 rounded-md checked:bg-blue-500 checked:border-blue-500 transition-colors cursor-pointer" />
+                                  <Check className="w-3 h-3 text-white absolute opacity-0 peer-checked:opacity-100 pointer-events-none" strokeWidth={3} />
+                                </div>
+                                <span className="text-xs font-bold text-slate-600 group-hover:text-slate-800 transition-colors">ให้อยู่ในระบบต่อ</span>
+                              </label>
+                              <button type="button" onClick={() => setAuthMode('forgot')} className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">ลืมรหัสผ่าน?</button>
+                            </div>
+                          </div>
+                          <button type="submit" disabled={isProcessing} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3.5 rounded-xl shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-2 mt-4">
+                            {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังเข้าสู่ระบบ...</> : <>เข้าสู่ระบบ <ArrowRight className="w-5 h-5" /></>}
+                          </button>
+                          <div className="text-center pt-2">
+                            <span className="text-xs text-slate-500 font-medium">ยังไม่มีบัญชีใช่ไหม? </span>
+                            <button type="button" onClick={() => setAuthMode('register')} className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors">สมัครสมาชิกที่นี่</button>
+                          </div>
+                        </form>
+                      )}
+
+                      {authMode === 'register' && (
+                        <form onSubmit={handleRegister} className="space-y-4 animate-in fade-in zoom-in-95 duration-700 ease-out">
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5">ชื่อ-นามสกุล</label>
+                            <input type="text" value={regName} onChange={(e) => setRegName(e.target.value)} required placeholder="ระบุชื่อของคุณ" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5">อีเมล</label>
+                            <input type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} required placeholder="example@email.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5">Username (ใช้เข้าระบบ)</label>
+                            <input type="text" value={regUsername} onChange={(e) => setRegUsername(e.target.value)} required placeholder="ระบุชื่อผู้ใช้สำหรับเข้าระบบ" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5">Password</label>
+                            <input type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} required placeholder="รหัสผ่านอย่างน้อย 6 ตัวอักษร" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5">Confirm Password</label>
+                            <input type="password" value={regConfirmPassword} onChange={(e) => setRegConfirmPassword(e.target.value)} required placeholder="ยืนยันรหัสผ่านอีกครั้ง" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" />
+                          </div>
+                          <button type="submit" disabled={isProcessing} className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold py-3.5 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition-all mt-4 flex justify-center items-center gap-2">
+                            {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังลงทะเบียน...</> : 'ลงทะเบียน'}
+                          </button>
+                          <button type="button" onClick={() => setAuthMode('login')} className="w-full py-3 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
+                            ยกเลิกและกลับไปหน้าเข้าสู่ระบบ
+                          </button>
+                        </form>
+                      )}
+
+                      {authMode === 'forgot' && (
+                        <form onSubmit={handleForgotPassword} className="space-y-5 animate-in fade-in zoom-in-95 duration-700 ease-out">
+                          <p className="text-sm text-slate-600 font-medium text-center px-4">กรุณาระบุอีเมลของคุณ ระบบจะทำการส่งลิงก์เพื่อตั้งรหัสผ่านใหม่ไปให้</p>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Email</label>
+                            <div className="relative">
+                              <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
+                              <input 
+                                type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)}
+                                placeholder="ระบุอีเมลที่ลงทะเบียนไว้" required
+                                className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:bg-white transition-colors font-bold text-slate-800" 
+                              />
+                            </div>
+                          </div>
+                          <button type="submit" disabled={isProcessing} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3.5 rounded-xl shadow-[0_4px_15px_rgba(37,99,235,0.3)] transition-all flex justify-center items-center gap-2">
+                            {isProcessing ? <><Loader2 className="w-5 h-5 animate-spin" /> กำลังดำเนินการ...</> : 'ส่งลิงก์รีเซ็ตรหัสผ่าน'}
+                          </button>
+                          <button type="button" onClick={() => setAuthMode('login')} className="w-full py-3 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
+                            กลับไปหน้าเข้าสู่ระบบ
+                          </button>
+                        </form>
+                      )}
+
+                   </div>
                 </div>
               </div>
             )}
