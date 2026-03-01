@@ -97,6 +97,7 @@ export interface Order {
   status: string;
   actualExpenses: ActualExpense[];
   createdBy?: string;
+  readBy?: string; // เพิ่มฟิลด์สำหรับเก็บ ID ผู้ใช้ที่อ่านออเดอร์นี้แล้ว
 }
 
 export interface CartItem {
@@ -688,6 +689,9 @@ function App() {
   const modalTimeoutRef = useRef<any>(null); // สำหรับยกเลิกการปิด Modal ถ้ากดเปิดใหม่เร็วๆ
   const announcementTimeoutRef = useRef<any>(null);
 
+  // --- NEW: สำหรับเก็บประวัติ ID ออเดอร์ที่ดึงมาแล้ว เพื่อไม่ให้แจ้งเตือนซ้ำ ---
+  const knownOrderIdsRef = useRef<Set<string>>(new Set());
+
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [orderSearchQuery, setOrderSearchQuery] = useState<string>('');
@@ -771,6 +775,41 @@ function App() {
 
   const isAdminOrStaff = currentUser?.role === 'admin' || currentUser?.role === 'staff';
 
+  // --- NEW ORDER NOTIFICATION STATE (Per User) ---
+  // นำ readOrderIds state และ useEffect ที่ดึงจาก localStorage ออกไปเลย
+  // เปลี่ยนมาเช็คจากข้อมูล Order โดยตรง
+
+  // ฟังก์ชันมาร์คว่าออเดอร์นี้ "อ่านแล้ว" และบันทึกลงฐานข้อมูล
+  const markOrderAsRead = async (order: Order) => {
+    if (!currentUser || !isAdminOrStaff) return;
+    
+    const currentReadBy = order.readBy ? order.readBy.split(',') : [];
+    
+    // ถ้ายังไม่อ่าน ให้บันทึก
+    if (!currentReadBy.includes(currentUser.id)) {
+      currentReadBy.push(currentUser.id);
+      const updatedReadBy = currentReadBy.join(',');
+      
+      const updatedOrder = { ...order, readBy: updatedReadBy };
+      
+      // อัปเดต UI ทันทีไม่ต้องรอ API
+      setOrders(prev => prev.map(o => o.id === order.id ? updatedOrder : o));
+
+      // ส่งไปบันทึกหลังบ้าน (ยิงเงียบๆ ไม่ต้องโชว์ Loading)
+      try {
+        await callServerAPI('saveOrder', updatedOrder);
+      } catch (e) {
+        console.error('Failed to mark order as read', e);
+      }
+    }
+  };
+
+  // จำนวนออเดอร์ใหม่ที่ยังไม่ได้อ่าน (คำนวณจากฟิลด์ readBy)
+  const unreadOrdersCount = isAdminOrStaff && currentUser ? orders.filter(o => {
+      const readList = o.readBy ? o.readBy.split(',') : [];
+      return !readList.includes(currentUser.id);
+  }).length : 0;
+
   // --- API CALL HELPER ---
   const callServerAPI = async (action: string, payload?: any) => {
     try {
@@ -805,7 +844,11 @@ function App() {
             }));
             setProducts(sanitizedProducts);
           }
-          if (json.data.orders && json.data.orders.length > 0) setOrders(json.data.orders);
+          if (json.data.orders && json.data.orders.length > 0) {
+            setOrders(json.data.orders);
+            // จำ ID ออเดอร์ทั้งหมดตอนโหลดเว็บครั้งแรก จะได้ไม่แจ้งเตือนของเก่า
+            json.data.orders.forEach((o: Order) => knownOrderIdsRef.current.add(o.id));
+          }
           if (json.data.users && json.data.users.length > 0) {
             setUsersList(json.data.users);
             
@@ -858,6 +901,65 @@ function App() {
     };
     fetchInitialData();
   }, []);
+
+  // --- BACKGROUND POLLING FOR NEW ORDERS (ADMIN/STAFF ONLY) ---
+  useEffect(() => {
+    if (!currentUser || !isAdminOrStaff) return;
+
+    // ขออนุญาตแจ้งเตือน (ถ้าผู้ใช้ยังไม่เคยอนุญาตหรือปฏิเสธ)
+    if ("Notification" in window && Notification.permission === "default") {
+       Notification.requestPermission();
+    }
+
+    const checkNewOrders = async () => {
+      try {
+        // 1. ถามหลังบ้านก่อนว่ามี ID ออเดอร์ไหนที่เรายังไม่อ่านบ้าง (คืนค่ามาแค่ Array ของ ID)
+        const checkRes = await callServerAPI('checkNewOrders', { userId: currentUser.id });
+        
+        if (checkRes.status === 'success' && checkRes.data) {
+          const { newOrderIds } = checkRes.data;
+          
+          // 2. กรองหา ID ที่ยัง "ไม่เคยเด้งเตือน" ในเครื่องนี้
+          const reallyNewIds = newOrderIds.filter((id: string) => !knownOrderIdsRef.current.has(id));
+          
+          // 3. ถ้ามีออเดอร์ใหม่จริงๆ ค่อยไปดึงข้อมูลก้อนใหญ่มาอัปเดตหน้าจอ
+          if (reallyNewIds.length > 0) {
+            // จำ ID ใหม่เข้าไปในสมุดจด เพื่อไม่ให้แจ้งเตือนซ้ำในรอบถัดไป
+            reallyNewIds.forEach((id: string) => knownOrderIdsRef.current.add(id));
+            
+            const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getOrders`);
+            const json = await res.json();
+            
+            if (json.status === 'success' && json.data) {
+              // อัปเดต State ให้ UI (ตาราง/การ์ด) มีข้อมูลใหม่โผล่ขึ้นมาทันทีแบบ Real-time
+              setOrders(json.data);
+              
+              // ยิงแจ้งเตือนผ่าน Browser (OS Level) เฉพาะออเดอร์ใหม่ที่เพิ่งกรองได้
+              if ("Notification" in window && Notification.permission === "granted") {
+                const newOrdersData = json.data.filter((o: Order) => reallyNewIds.includes(o.id));
+                newOrdersData.forEach((o: Order) => {
+                  const notif = new Notification(`📦 มีออเดอร์ใหม่เข้า! (${o.id})`, {
+                    body: `ลูกค้า: ${o.customer}\nยอดรวมสุทธิ: ฿${o.total.toLocaleString()}`,
+                    icon: 'https://cdn-icons-png.flaticon.com/512/3500/3500833.png' // รูปไอคอนตะกร้าตอนเด้งเตือน
+                  });
+                  // เมื่อคลิกที่การแจ้งเตือน ให้ดึงหน้าต่างเว็บขึ้นมา
+                  notif.onclick = () => {
+                    window.focus();
+                  };
+                });
+              }
+            }
+          }
+        }
+      } catch(e) {
+        console.error("Polling error", e);
+      }
+    };
+
+    // ตั้งเวลาให้แอบเช็คหลังบ้านทุกๆ 60 วินาที (60000 ms)
+    const intervalId = setInterval(checkNewOrders, 60000);
+    return () => clearInterval(intervalId);
+  }, [currentUser, isAdminOrStaff]);
 
   // --- ANNOUNCEMENT LOGIC ---
   useEffect(() => {
@@ -1088,6 +1190,11 @@ function App() {
 
     setCurrentUser(user);
     
+    // ขออนุญาตแจ้งเตือนทันทีที่ล็อกอินในฐานะแอดมินหรือพนักงาน (เพื่อหลีกเลี่ยงการถูกบล็อกโดยเบราว์เซอร์)
+    if (user.role !== 'user' && "Notification" in window && Notification.permission !== "granted") {
+       Notification.requestPermission();
+    }
+
     // บันทึกหรือลบข้อมูลการเข้าระบบตามที่ผู้ใช้เลือก "ให้อยู่ในระบบต่อ"
     if (rememberMe) {
       localStorage.setItem('savedUserId', user.id);
@@ -1648,6 +1755,7 @@ function App() {
   };
 
   const openEditOrderModal = (order: Order) => {
+    markOrderAsRead(order); // บันทึกว่าผู้ใช้นี้ได้อ่านออเดอร์นี้แล้ว แจ้งเตือนจะหายไป (ดึง API ยิงขึ้นฐานข้อมูล)
     setDraftOrder(JSON.parse(JSON.stringify(order)));
     openModal('edit_order');
   };
@@ -2251,7 +2359,7 @@ function App() {
     isAdminOrStaff && { id: 'dashboard', label: 'แดชบอร์ด', icon: PieChart, activeClass: 'text-emerald-600' },
     { id: 'store', label: 'หน้าร้าน', icon: Store, activeClass: 'text-sky-600' },
     isAdminOrStaff && { id: 'products', label: 'คลังสินค้า', icon: Box, activeClass: 'text-blue-700' },
-    isAdminOrStaff && { id: 'orders', label: 'คำสั่งซื้อ', icon: ClipboardList, activeClass: 'text-purple-700' },
+    isAdminOrStaff && { id: 'orders', label: 'คำสั่งซื้อ', icon: ClipboardList, activeClass: 'text-purple-700', badge: unreadOrdersCount },
     currentUser?.role === 'admin' && { id: 'users', label: 'จัดการผู้ใช้', icon: Users, activeClass: 'text-amber-600' },
     currentUser?.role === 'admin' && { id: 'settings', label: 'ตั้งค่าระบบ', icon: Settings, activeClass: 'text-slate-800' },
     currentUser && !isAdminOrStaff && { id: 'my_orders', label: 'คำสั่งซื้อของฉัน', icon: ShoppingBag, activeClass: 'text-pink-600' },
@@ -2261,7 +2369,7 @@ function App() {
     isAdminOrStaff && { id: 'dashboard', label: 'ภาพรวม', icon: PieChart, activeClass: 'text-emerald-600' },
     { id: 'store', label: 'หน้าร้าน', icon: Store, activeClass: 'text-sky-600' },
     isAdminOrStaff && { id: 'products', label: 'คลังสินค้า', icon: Box, activeClass: 'text-blue-600' },
-    isAdminOrStaff && { id: 'orders', label: 'คำสั่งซื้อ', icon: ClipboardList, activeClass: 'text-purple-600' },
+    isAdminOrStaff && { id: 'orders', label: 'คำสั่งซื้อ', icon: ClipboardList, activeClass: 'text-purple-600', badge: unreadOrdersCount },
     currentUser && !isAdminOrStaff && { id: 'my_orders', label: 'สั่งซื้อของฉัน', icon: ShoppingBag, activeClass: 'text-pink-600' },
     currentUser?.role === 'admin' && { id: 'users', label: 'ผู้ใช้', icon: Users, activeClass: 'text-amber-600' },
     { id: 'profile_menu', label: currentUser ? 'โปรไฟล์' : 'เข้าสู่ระบบ', icon: User, activeClass: 'text-fuchsia-600' },
@@ -2398,14 +2506,26 @@ function App() {
              const isActive = desktopActiveIndex === idx;
              return (
                <button key={item.id} onClick={() => handleTabSwitch(item.id)} className={`relative z-10 flex items-center h-[48px] rounded-xl text-left ${!isDraggingSidebar ? 'transition-all duration-300' : ''} ${isSidebarHovered || isDraggingSidebar ? 'w-full px-3.5' : 'w-[52px] justify-center mx-auto'} ${isActive ? `${item.activeClass} font-bold` : 'text-slate-500 hover:text-slate-800 font-medium'}`}>
-                  <div className={`p-1.5 rounded-lg transition-colors duration-500 flex-shrink-0 flex items-center justify-center ${isActive ? 'bg-white shadow-sm border border-slate-100' : 'bg-transparent'}`}>
+                  <div className={`p-1.5 rounded-lg transition-colors duration-500 flex-shrink-0 flex items-center justify-center relative ${isActive ? 'bg-white shadow-sm border border-slate-100' : 'bg-transparent'}`}>
                     <item.icon className={`w-5 h-5 transition-transform duration-500 ease-[cubic-bezier(0.68,-0.55,0.265,1.55)] ${isActive ? 'scale-110' : 'scale-100'}`} strokeWidth={isActive ? 2.5 : 2} />
+                    {/* Desktop Notification Badge */}
+                    {item.badge > 0 && (!isSidebarHovered && !isDraggingSidebar) && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-slate-50 shadow-sm z-20">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
                   </div>
                   <span 
                     style={isDraggingSidebar ? { opacity: dragProgress, maxWidth: `${dragProgress * 200}px`, marginLeft: `${dragProgress * 12}px` } : {}}
-                    className={`whitespace-nowrap overflow-hidden ${!isDraggingSidebar ? 'transition-all duration-300' : ''} ${!isDraggingSidebar && isSidebarHovered ? 'max-w-[200px] ml-3 opacity-100' : (!isDraggingSidebar ? 'max-w-0 ml-0 opacity-0' : '')}`}
+                    className={`whitespace-nowrap overflow-hidden flex items-center gap-2 ${!isDraggingSidebar ? 'transition-all duration-300' : ''} ${!isDraggingSidebar && isSidebarHovered ? 'max-w-[200px] ml-3 opacity-100' : (!isDraggingSidebar ? 'max-w-0 ml-0 opacity-0' : '')}`}
                   >
                     {item.label}
+                    {/* Expanded Desktop Notification Badge */}
+                    {item.badge > 0 && (isSidebarHovered || isDraggingSidebar) && (
+                      <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-md leading-none shadow-sm drop-shadow-sm">
+                        {item.badge > 99 ? '99+' : item.badge} NEW
+                      </span>
+                    )}
                   </span>
                </button>
              )
@@ -2548,11 +2668,17 @@ function App() {
                 className="relative z-10 flex-1 flex items-center justify-center h-full outline-none"
               >
                 {/* Icon Container */}
-                <div className={`transition-all duration-500 ease-[cubic-bezier(0.68,-0.55,0.265,1.55)] flex items-center justify-center ${isActive ? 'scale-125' : 'scale-100 hover:scale-110'}`}>
+                <div className={`transition-all duration-500 ease-[cubic-bezier(0.68,-0.55,0.265,1.55)] flex items-center justify-center relative ${isActive ? 'scale-125' : 'scale-100 hover:scale-110'}`}>
                   <item.icon 
                     className={`w-5 h-5 transition-colors duration-300 ${isActive ? 'text-white' : 'text-slate-400'}`} 
                     strokeWidth={isActive ? 2.5 : 2} 
                   />
+                  {/* Mobile Nav Notification Badge */}
+                  {item.badge > 0 && (
+                    <span className={`absolute -top-1.5 -right-2 bg-rose-500 text-white text-[9px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 transition-colors duration-300 ${isActive ? 'border-blue-500' : 'border-white'} shadow-sm`}>
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
                 </div>
               </button>
             );
@@ -2972,9 +3098,20 @@ function App() {
                   {filteredDashOrders.slice(0, dashVisibleOrdersCount).map((order, idx) => {
                     const rowSubtotal = order.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
                     const rowCarryingFee = order.items.reduce((sum, item) => sum + ((item.carryingFee || 0) * item.qty), 0);
+                    // เช็คว่าอ่านหรือยังจากฟิลด์ readBy
+                    const readList = order.readBy ? order.readBy.split(',') : [];
+                    const isNewOrder = isAdminOrStaff && currentUser && !readList.includes(currentUser.id);
                     return (
-                      <div key={order.id} onClick={() => openEditOrderModal(order)} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 ease-out cursor-pointer" style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both', animationDuration: '600ms'}}>
-                        <div className="flex justify-between items-start border-b border-slate-50 pb-3">
+                      <div key={order.id} onClick={() => openEditOrderModal(order)} className={`bg-white p-5 rounded-2xl border ${isNewOrder ? 'border-rose-200 shadow-[0_4px_15px_rgba(244,63,94,0.1)]' : 'border-slate-200 shadow-sm'} flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 ease-out cursor-pointer relative overflow-hidden`} style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both', animationDuration: '600ms'}}>
+                        
+                        {/* ป้ายมุม 45 องศาสำหรับออเดอร์ใหม่ */}
+                        {isNewOrder && (
+                          <div className="absolute top-2.5 -left-7 w-[90px] bg-gradient-to-r from-rose-500 to-pink-500 py-1 flex justify-center items-center -rotate-45 z-10 shadow-[0_4px_15px_rgba(225,29,72,0.4)] border-y border-rose-300">
+                            <span className="animate-pulse text-white text-[10px] font-black uppercase tracking-widest pl-[0.1em]">NEW</span>
+                          </div>
+                        )}
+
+                        <div className={`flex justify-between items-start border-b border-slate-50 pb-3 ${isNewOrder ? 'pl-4' : ''}`}>
                           <div>
                             <p className="font-mono text-blue-600 font-bold text-sm">{order.id}</p>
                             <div className="flex items-center gap-2 mt-0.5">
@@ -3097,10 +3234,19 @@ function App() {
                       {filteredDashOrders.slice(0, dashVisibleOrdersCount).map((order, idx) => {
                         const rowSubtotal = order.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
                         const rowCarryingFee = order.items.reduce((sum, item) => sum + ((item.carryingFee || 0) * item.qty), 0);
+                        // เช็คว่าอ่านหรือยังจากฟิลด์ readBy
+                        const readList = order.readBy ? order.readBy.split(',') : [];
+                        const isNewOrder = isAdminOrStaff && currentUser && !readList.includes(currentUser.id);
                         
                         return (
-                        <tr key={order.id} onClick={() => openEditOrderModal(order)} className="hover:bg-slate-50/70 transition-colors group cursor-pointer animate-in fade-in slide-in-from-bottom-4 ease-out" style={{animationDelay: `${Math.min(idx * 80, 800)}ms`, animationFillMode: 'both', animationDuration: '1000ms'}}>
-                          <td className="px-6 py-5 pl-8 align-top whitespace-nowrap">
+                        <tr key={order.id} onClick={() => openEditOrderModal(order)} className={`${isNewOrder ? 'bg-rose-50/30 hover:bg-rose-50/60' : 'hover:bg-slate-50/70'} transition-colors group cursor-pointer animate-in fade-in slide-in-from-bottom-4 ease-out`} style={{animationDelay: `${Math.min(idx * 80, 800)}ms`, animationFillMode: 'both', animationDuration: '1000ms'}}>
+                          <td className="px-6 py-5 pl-8 align-top whitespace-nowrap relative overflow-hidden">
+                            {/* ป้ายมุม 45 องศาสำหรับตาราง Desktop */}
+                            {isNewOrder && (
+                              <div className="absolute top-2.5 -left-7 w-[90px] bg-gradient-to-r from-rose-500 to-pink-500 py-[3px] flex justify-center items-center -rotate-45 z-10 shadow-[0_4px_15px_rgba(225,29,72,0.4)] border-y border-rose-300">
+                                <span className="animate-pulse text-white text-[9px] font-black uppercase tracking-widest pl-[0.1em]">NEW</span>
+                              </div>
+                            )}
                             <p className="font-mono text-blue-600 font-bold group-hover:text-blue-700 text-sm">{order.id}</p>
                             {order.orderDate && <p className="text-[12px] text-slate-400 font-sans mt-1">{order.orderDate}</p>}
                             {order.createdBy && <p className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded w-fit mt-1.5 font-medium">บันทึกโดย: {order.createdBy}</p>}
@@ -3457,9 +3603,20 @@ function App() {
                 {filteredOrders.map((order, idx) => {
                   const rowSubtotal = order.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
                   const rowCarryingFee = order.items.reduce((sum, item) => sum + ((item.carryingFee || 0) * item.qty), 0);
+                  // เช็คว่าอ่านหรือยังจากฟิลด์ readBy
+                  const readList = order.readBy ? order.readBy.split(',') : [];
+                  const isNewOrder = isAdminOrStaff && currentUser && !readList.includes(currentUser.id);
                   return (
-                    <div key={order.id} onClick={() => openEditOrderModal(order)} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 ease-out cursor-pointer" style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both', animationDuration: '600ms'}}>
-                        <div className="flex justify-between items-start border-b border-slate-50 pb-3">
+                    <div key={order.id} onClick={() => openEditOrderModal(order)} className={`bg-white p-5 rounded-2xl border ${isNewOrder ? 'border-rose-200 shadow-[0_4px_15px_rgba(244,63,94,0.1)]' : 'border-slate-200 shadow-sm'} flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 ease-out cursor-pointer relative overflow-hidden`} style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both', animationDuration: '600ms'}}>
+                        
+                        {/* ป้ายมุม 45 องศาสำหรับออเดอร์ใหม่ */}
+                        {isNewOrder && (
+                          <div className="absolute top-2.5 -left-7 w-[90px] bg-gradient-to-r from-rose-500 to-pink-500 py-1 flex justify-center items-center -rotate-45 z-10 shadow-[0_4px_15px_rgba(225,29,72,0.4)] border-y border-rose-300">
+                            <span className="animate-pulse text-white text-[10px] font-black uppercase tracking-widest pl-[0.1em]">NEW</span>
+                          </div>
+                        )}
+
+                        <div className={`flex justify-between items-start border-b border-slate-50 pb-3 ${isNewOrder ? 'pl-4' : ''}`}>
                           <div>
                             <p className="font-mono text-blue-600 font-bold text-sm">{order.id}</p>
                             <div className="flex items-center gap-2 mt-0.5">
@@ -3579,9 +3736,18 @@ function App() {
                       {filteredOrders.map((order, idx) => {
                         const rowSubtotal = order.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
                         const rowCarryingFee = order.items.reduce((sum, item) => sum + ((item.carryingFee || 0) * item.qty), 0);
+                        // เช็คว่าอ่านหรือยังจากฟิลด์ readBy
+                        const readList = order.readBy ? order.readBy.split(',') : [];
+                        const isNewOrder = isAdminOrStaff && currentUser && !readList.includes(currentUser.id);
                         return (
-                        <tr key={order.id} onClick={() => openEditOrderModal(order)} className="hover:bg-slate-50/70 transition-colors group cursor-pointer animate-in fade-in slide-in-from-bottom-4 ease-out" style={{ animationDelay: `${Math.min(idx * 80, 800)}ms`, animationFillMode: 'both', animationDuration: '1000ms' }}>
-                          <td className="px-6 py-5 pl-8 align-top whitespace-nowrap">
+                        <tr key={order.id} onClick={() => openEditOrderModal(order)} className={`${isNewOrder ? 'bg-rose-50/30 hover:bg-rose-50/60' : 'hover:bg-slate-50/70'} transition-colors group cursor-pointer animate-in fade-in slide-in-from-bottom-4 ease-out`} style={{ animationDelay: `${Math.min(idx * 80, 800)}ms`, animationFillMode: 'both', animationDuration: '1000ms' }}>
+                          <td className="px-6 py-5 pl-8 align-top whitespace-nowrap relative overflow-hidden">
+                            {/* ป้ายมุม 45 องศาสำหรับตาราง Desktop */}
+                            {isNewOrder && (
+                              <div className="absolute top-2.5 -left-7 w-[90px] bg-gradient-to-r from-rose-500 to-pink-500 py-[3px] flex justify-center items-center -rotate-45 z-10 shadow-[0_4px_15px_rgba(225,29,72,0.4)] border-y border-rose-300">
+                                <span className="animate-pulse text-white text-[9px] font-black uppercase tracking-widest pl-[0.1em]">NEW</span>
+                              </div>
+                            )}
                             <p className="font-mono text-blue-600 font-bold group-hover:text-blue-700 text-sm">{order.id}</p>
                             {order.orderDate && <p className="text-[12px] text-slate-400 font-sans mt-1">{order.orderDate}</p>}
                             {order.createdBy && <p className="text-[10px] text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded w-fit mt-1.5 font-medium">บันทึกโดย: {order.createdBy}</p>}
