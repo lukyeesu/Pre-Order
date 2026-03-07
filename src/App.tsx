@@ -4394,6 +4394,101 @@ function App() {
           </div>
         )}
 
+        {/* MY ORDERS TAB (USER) */}
+        {activeTab === 'my_orders' && currentUser && !isAdminOrStaff && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
+            <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex items-center justify-between">
+              <h2 className="text-3xl font-bold text-slate-800 tracking-wide flex items-center gap-3">
+                คำสั่งซื้อของฉัน <span className="text-pink-500/40 text-2xl hidden sm:inline">/ MY ORDERS</span>
+              </h2>
+            </div>
+
+            <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-6 pb-20">
+              <div className="flex flex-col gap-4 max-w-4xl mx-auto">
+                {orders.filter(o => o.userId === currentUser.id).length === 0 ? (
+                   <div className="text-center py-16 text-slate-400 bg-white rounded-3xl border border-slate-200 border-dashed shadow-sm">
+                     <ShoppingBag className="w-12 h-12 mx-auto text-slate-300 mb-4" />
+                     <p className="font-medium text-lg text-slate-500">คุณยังไม่มีคำสั่งซื้อ</p>
+                     <button onClick={() => handleTabSwitch('store')} className="mt-4 px-6 py-2.5 bg-sky-50 text-sky-600 font-bold rounded-xl hover:bg-sky-100 transition-colors border border-sky-100">ไปช้อปปิ้งกันเลย</button>
+                   </div>
+                ) : (
+                  orders.filter(o => o.userId === currentUser.id).sort((a, b) => b.id.localeCompare(a.id)).map((order, idx) => {
+                    const rowSubtotal = order.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                    const rowCarryingFee = order.items.reduce((sum, item) => sum + ((item.carryingFee || 0) * item.qty), 0);
+                    return (
+                      <div key={order.id} onClick={() => openEditOrderModal(order)} className={`bg-white p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 ease-out cursor-pointer transition-all duration-300`} style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both'}}>
+                        <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+                          <div>
+                            <p className="font-mono text-pink-600 font-bold text-base">{order.id}</p>
+                            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5"/> {order.orderDate}</p>
+                          </div>
+                          <div>{getStatusBadge(order.status)}</div>
+                        </div>
+                        
+                        <div className="bg-slate-50/80 rounded-2xl p-4 text-xs space-y-3 border border-slate-100">
+                           {order.items.map((item, i) => {
+                             const product = products.find(p => p.id === item.id);
+                             const itemImageUrl = product?.imageUrl;
+                             return (
+                             <div key={i} className="flex justify-between items-center gap-3 border-b border-slate-200/50 pb-3 last:border-0 last:pb-0">
+                               <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                    {itemImageUrl ? <img src={itemImageUrl} alt={item.name} className="w-full h-full object-cover" /> : <ImageIcon className="w-5 h-5 text-slate-300"/>}
+                                  </div>
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-slate-700 font-bold line-clamp-1">{item.name}</span>
+                                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                       <span className="text-slate-500 font-medium text-[10px]">จำนวน: {item.qty}</span>
+                                       {item.variation && <span className="text-slate-500 font-medium text-[10px]">| แบบ: {item.variation}</span>}
+                                    </div>
+                                  </div>
+                               </div>
+                               <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                 <span className="font-black text-slate-700 whitespace-nowrap text-sm">฿{(item.price * item.qty).toLocaleString()}</span>
+                               </div>
+                             </div>
+                           )})}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                           <div className="text-xs text-slate-600 bg-sky-50/50 p-3.5 rounded-xl border border-sky-100/50">
+                             <div className="font-bold text-sky-700 mb-2 flex items-center gap-1.5"><Truck className="w-4 h-4"/> การจัดส่ง</div>
+                             <div className="flex items-center gap-2 mb-2">
+                               <span className="bg-white px-2 py-1 rounded-md font-bold text-sky-600 border border-sky-100">{order.deliveryMethod === 'pickup' ? 'นัดรับ' : 'จัดส่ง'}</span>
+                               {order.deliveryDate && <span className="text-slate-500">{order.deliveryDate}</span>}
+                             </div>
+                             <p className="line-clamp-2">{order.address || '-'}</p>
+                           </div>
+                           
+                           <div className="flex flex-col justify-center text-sm px-2">
+                             <div className="flex justify-between text-slate-500 mb-1.5"><span>ค่าสินค้า:</span> <span>฿{rowSubtotal.toLocaleString()}</span></div>
+                             {rowCarryingFee > 0 && <div className="flex justify-between text-emerald-600 mb-1.5"><span>ค่าหิ้ว:</span> <span>+฿{rowCarryingFee.toLocaleString()}</span></div>}
+                             {Number(order.shippingFee) > 0 && <div className="flex justify-between text-orange-600 mb-1.5"><span>ค่าจัดส่ง:</span> <span>+฿{Number(order.shippingFee).toLocaleString()}</span></div>}
+                             {Number(order.discount) > 0 && <div className="flex justify-between text-rose-500 mb-1.5"><span>ส่วนลด:</span> <span>-฿{Number(order.discount).toLocaleString()}</span></div>}
+                             <div className="flex justify-between items-end mt-2 pt-3 border-t border-slate-100">
+                               <span className="text-xs font-bold text-slate-500">ยอดรวมสุทธิ</span>
+                               <span className="text-2xl font-black text-pink-600">฿{order.total.toLocaleString()}</span>
+                             </div>
+                           </div>
+                        </div>
+                        
+                        {/* ป้องกัน user กดยกเลิกในกรณีอื่น */}
+                        {(['waiting_payment', 'paid'].includes(order.status)) && (
+                           <div className="flex justify-end pt-3 mt-1 border-t border-slate-100">
+                             <button onClick={(e) => { e.stopPropagation(); openModal('cancel_order_confirm', order); }} className="px-5 py-2.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl transition-colors flex items-center gap-2">
+                               <X className="w-4 h-4" /> ยกเลิกคำสั่งซื้อ
+                             </button>
+                           </div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* USERS TAB (ADMIN) */}
         {activeTab === 'users' && currentUser?.role === 'admin' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
