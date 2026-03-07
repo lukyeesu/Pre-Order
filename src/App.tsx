@@ -59,6 +59,7 @@ export interface Product {
   variations: Variation[];
   description: string;
   images?: string[];
+  isNew?: boolean; // เพิ่มฟิลด์สินค้าใหม่
 }
 
 export interface ActualExpense {
@@ -141,6 +142,7 @@ export interface SystemSettings {
   baseShippingFee?: number | string;       // Add this (ค่าจัดส่งชิ้นแรก)
   addShippingFee?: number | string;        // Add this (ค่าจัดส่งชิ้นต่อไป)
   pickupFee?: number | string;             // Add this (ค่าธรรมเนียมการนัดรับ)
+  productOrder?: string;                   // เพิ่มฟิลด์สำหรับจำตำแหน่งการจัดเรียงสินค้า
 }
 
 // --- CONFIGURATION ---
@@ -628,7 +630,8 @@ function App() {
     pickupNote: '',
     baseShippingFee: 50,
     addShippingFee: 10,
-    pickupFee: 0
+    pickupFee: 0,
+    productOrder: ''
   });
 
   // Announcement States
@@ -837,11 +840,38 @@ function App() {
         if (json.status === 'success') {
           if (json.data.products && json.data.products.length > 0) {
             // ดักให้สินค้าที่สต็อกเหลือ 0 เป็น sold out ทันทีตั้งแต่โหลดข้อมูล
-            const sanitizedProducts = json.data.products.map((p: any) => ({
+            let sanitizedProducts = json.data.products.map((p: any) => ({
               ...p,
               stock: Number(p.stock) || 0,
-              status: Number(p.stock) <= 0 ? 'sold_out' : p.status
+              status: Number(p.stock) <= 0 ? 'sold_out' : p.status,
+              isNew: p.isNew === true || p.isNew === 'true' || p.isNew === 'TRUE'
             }));
+
+            // --- เรียงลำดับสินค้า ---
+            const fetchedSettings = json.data.settings?.[0];
+            let orderArr: string[] = [];
+            if (fetchedSettings && fetchedSettings.productOrder) {
+              try {
+                orderArr = JSON.parse(fetchedSettings.productOrder);
+              } catch(e) {}
+            }
+
+            sanitizedProducts.sort((a, b) => {
+              // 1. ล็อคให้สินค้าที่เป็น NEW อยู่บนสุดเสมอ
+              if (a.isNew && !b.isNew) return -1;
+              if (!a.isNew && b.isNew) return 1;
+
+              // 2. ถ้าสถานะ NEW เท่ากัน (หรือไม่ได้เป็น NEW ทั้งคู่) ให้เรียงตามที่จับลาก (productOrder)
+              if (Array.isArray(orderArr) && orderArr.length > 0) {
+                const idxA = orderArr.indexOf(a.id);
+                const idxB = orderArr.indexOf(b.id);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+              }
+              return 0;
+            });
+
             setProducts(sanitizedProducts);
           }
           if (json.data.orders && json.data.orders.length > 0) {
@@ -1313,8 +1343,9 @@ function App() {
   const saveSysSettingsToDB = async (newStatuses?: OrderStatus[], newBanks?: Bank[]) => {
     const payload = {
       ...sysSettings,
-      orderStatuses: JSON.stringify(newStatuses || orderStatuses),
-      bankOptions: JSON.stringify(newBanks || bankOptions)
+      id: sysSettings.id || 'system',
+      orderStatuses: typeof (newStatuses || orderStatuses) === 'string' ? (newStatuses || orderStatuses) : JSON.stringify(newStatuses || orderStatuses),
+      bankOptions: typeof (newBanks || bankOptions) === 'string' ? (newBanks || bankOptions) : JSON.stringify(newBanks || bankOptions)
     };
     try {
       await callServerAPI('saveSettings', payload);
@@ -1566,13 +1597,43 @@ function App() {
 
     try {
       await callServerAPI('saveProduct', product);
-      if (product.id && products.some(p => p.id === product.id)) {
-        setProducts(products.map(p => p.id === product.id ? product : p));
-        showToast("อัปเดตข้อมูลสินค้าแล้ว");
+      
+      let updatedProducts = [...products];
+      const existingIdx = updatedProducts.findIndex(p => p.id === product.id);
+      const wasNew = existingIdx >= 0 ? updatedProducts[existingIdx].isNew : false;
+      
+      if (existingIdx >= 0) {
+        updatedProducts[existingIdx] = product;
+        // ถ้าเพิ่งเปิดให้เป็นสินค้าใหม่ ให้ดันขึ้นไปบนสุด
+        if (product.isNew && !wasNew) {
+          updatedProducts.splice(existingIdx, 1);
+          updatedProducts.unshift(product);
+        }
       } else {
-        setProducts([...products, product]);
-        showToast("เพิ่มสินค้าใหม่สำเร็จ");
+        if (product.isNew) {
+          updatedProducts.unshift(product);
+        } else {
+          updatedProducts.push(product);
+        }
       }
+      
+      setProducts(updatedProducts);
+      showToast(existingIdx >= 0 ? "อัปเดตข้อมูลสินค้าแล้ว" : "เพิ่มสินค้าใหม่สำเร็จ");
+      
+      // บันทึกตำแหน่งการเรียงใหม่ไปยังตั้งค่าระบบหลังบ้านอัตโนมัติ
+      if (product.isNew && (!wasNew || existingIdx === -1)) {
+         const newOrderList = updatedProducts.map(p => p.id);
+         const updatedSettings = { ...sysSettings, productOrder: JSON.stringify(newOrderList) };
+         setSysSettings(updatedSettings);
+         const payload = {
+           ...updatedSettings,
+           id: updatedSettings.id || 'system',
+           orderStatuses: typeof orderStatuses === 'string' ? orderStatuses : JSON.stringify(orderStatuses),
+           bankOptions: typeof bankOptions === 'string' ? bankOptions : JSON.stringify(bankOptions)
+         };
+         callServerAPI('saveSettings', payload);
+      }
+      
       closeModal();
     } catch (err) {
       showToast("บันทึกข้อมูลสินค้าไม่สำเร็จ", "error");
@@ -2125,19 +2186,47 @@ function App() {
     draftTotal = draftSubtotal + draftCarryingFee + Number(draftOrder.shippingFee || 0) - Number(draftOrder.discount || 0);
   }
 
-  const handleDrop = (targetIndex: number) => {
+  const handleDrop = async (targetIndex: number) => {
     if (draggedIdx === null || draggedIdx === targetIndex) {
       setDraggedIdx(null);
       setDragOverIdx(null);
       return;
     }
+
+    // ล็อคไม่ให้จัดเรียงถ้ากำลังพิมพ์ค้นหาสินค้าอยู่ (ป้องกัน Index เพี้ยน)
+    if (searchQuery.trim() !== '') {
+       showToast('กรุณาล้างคำค้นหาก่อนทำการจัดเรียงสินค้า', 'warning');
+       setDraggedIdx(null); setDragOverIdx(null); return;
+    }
+
     const newProducts = [...products];
+    
+    // === แก้ไข: กลับมาใช้ระบบ "แทรกแล้วดันตัวที่เหลือลงไป (Insert & Shift)" ตามที่คุณต้องการ ===
     const draggedItem = newProducts[draggedIdx];
-    newProducts.splice(draggedIdx, 1);
-    newProducts.splice(targetIndex, 0, draggedItem);
+    newProducts.splice(draggedIdx, 1); // ดึงตัวที่ลากออกมาจากตำแหน่งเดิม
+    newProducts.splice(targetIndex, 0, draggedItem); // เอาไปแทรกในตำแหน่งใหม่ และดันตัวที่เหลือลงไป
+
     setProducts(newProducts);
     setDraggedIdx(null);
     setDragOverIdx(null);
+
+    // จำตำแหน่งการจัดเรียงใหม่ และส่งบันทึกลงฐานข้อมูลเบื้องหลัง
+    const newOrderList = newProducts.map(p => p.id);
+    const updatedSettings = { ...sysSettings, productOrder: JSON.stringify(newOrderList) };
+    setSysSettings(updatedSettings);
+    
+    const payload = {
+      ...updatedSettings,
+      id: updatedSettings.id || 'system', // บังคับส่ง ID ป้องกันการบันทึกตกหล่น
+      orderStatuses: typeof orderStatuses === 'string' ? orderStatuses : JSON.stringify(orderStatuses),
+      bankOptions: typeof bankOptions === 'string' ? bankOptions : JSON.stringify(bankOptions)
+    };
+    
+    try {
+      await callServerAPI('saveSettings', payload);
+    } catch (err) {
+      showToast('บันทึกการจัดเรียงไม่สำเร็จ โปรดรีเฟรชแล้วลองใหม่', 'error');
+    }
   };
 
   const openModal = (type: string, data: any = null) => {
@@ -2286,6 +2375,7 @@ function App() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const cleanVariations = formVariations.filter(v => v.name.trim() !== '');
+    const isNewChecked = !!formData.get('isNew'); // รับค่าจาก Toggle
     
     const newProduct: Product = {
       id: modal.data?.id || `P${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
@@ -2298,7 +2388,8 @@ function App() {
       images: previewUrls,
       status: Number(formData.get('stock')) > 0 ? 'available' : 'sold_out',
       variations: cleanVariations,
-      description: (formData.get('description') as string) || ''
+      description: (formData.get('description') as string) || '',
+      isNew: isNewChecked
     };
     saveProduct(newProduct);
   };
@@ -3442,6 +3533,9 @@ function App() {
                       {isSoldOut && (
                         <div className="absolute top-6 -right-10 w-[150px] bg-rose-500/95 backdrop-blur-sm text-white text-[10px] sm:text-[11px] font-black tracking-widest py-1.5 text-center rotate-45 z-50 uppercase shadow-md pointer-events-none">SOLD OUT</div>
                       )}
+                      {product.isNew && !isSoldOut && (
+                        <div className="absolute top-4 -left-2 bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white text-xs sm:text-sm font-black px-4 py-1.5 rounded-r-xl z-20 shadow-lg flex items-center gap-1.5 animate-pulse"><Sparkles className="w-4 h-4"/> NEW</div>
+                      )}
                       <div className="flex-1 flex flex-col">
                         <div onClick={() => openModal('product_details', product)} className="cursor-pointer w-full aspect-square bg-slate-50 rounded-xl mb-3 sm:mb-4 flex items-center justify-center border border-slate-100 shadow-inner group-hover:bg-sky-50/50 transition-colors relative overflow-hidden">
                            <div className="absolute inset-0 opacity-[0.03] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-transparent to-transparent bg-[length:4px_4px]"></div>
@@ -3537,6 +3631,9 @@ function App() {
                       >
                         {isSoldOut && (
                           <div className="absolute top-6 -right-10 w-[150px] bg-rose-500/95 backdrop-blur-sm text-white text-[10px] sm:text-[11px] font-black tracking-widest py-1.5 text-center rotate-45 z-50 uppercase shadow-md pointer-events-none">SOLD OUT</div>
+                        )}
+                        {product.isNew && !isSoldOut && (
+                          <div className="absolute top-4 -left-2 bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white text-xs sm:text-sm font-black px-4 py-1.5 rounded-r-xl z-20 shadow-lg flex items-center gap-1.5 animate-pulse"><Sparkles className="w-4 h-4"/> NEW</div>
                         )}
                         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div className="absolute top-2 left-2 z-20 text-slate-300 group-hover:text-blue-500 bg-white/80 backdrop-blur-sm rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm pointer-events-none">
@@ -3945,11 +4042,11 @@ function App() {
                 {/* 1. Popup Announcement */}
                 <div className="grid grid-cols-1 gap-4 bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
                   <div className="flex items-center gap-3">
-                     <label className="relative inline-flex items-center cursor-pointer">
+                     <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                        <input type="checkbox" checked={!!sysSettings.isAnnouncementActive} onChange={(e) => setSysSettings({...sysSettings, isAnnouncementActive: e.target.checked})} className="sr-only peer" />
                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
-                       <span className="ml-3 text-sm font-bold text-slate-700">เปิดใช้งานป๊อปอัพประกาศกลางจอ (Popup Modal)</span>
                      </label>
+                     <span className="text-sm font-bold text-slate-700">เปิดใช้งานป๊อปอัพประกาศกลางจอ (Popup Modal)</span>
                   </div>
                   {sysSettings.isAnnouncementActive && (
                     <div className="mt-2">
@@ -3966,11 +4063,11 @@ function App() {
                 {/* 2. Capsule Announcement */}
                 <div className="grid grid-cols-1 gap-4 bg-sky-50/40 p-5 rounded-2xl border border-sky-100 mt-2">
                   <div className="flex items-center gap-3">
-                     <label className="relative inline-flex items-center cursor-pointer">
+                     <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                        <input type="checkbox" checked={!!sysSettings.isCapsuleActive} onChange={(e) => setSysSettings({...sysSettings, isCapsuleActive: e.target.checked})} className="sr-only peer" />
                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500"></div>
-                       <span className="ml-3 text-sm font-bold text-slate-700">เปิดใช้งานป้ายประกาศแคปซูลใต้ Header (ข้อความวิ่ง)</span>
                      </label>
+                     <span className="text-sm font-bold text-slate-700">เปิดใช้งานป้ายประกาศแคปซูลใต้ Header (ข้อความวิ่ง)</span>
                   </div>
                   {sysSettings.isCapsuleActive && (
                     <div className="mt-2">
@@ -4993,6 +5090,18 @@ function App() {
                         {formVariations.length === 0 && <div className="text-xs text-slate-400 italic mt-2 bg-slate-50 p-3 rounded-lg border border-dashed border-slate-200 text-center">ไม่มีตัวเลือกย่อย (สามารถเพิ่มได้ถ้าสินค้ามีหลายขนาด/สี)</div>}
                       </div>
                     </div>
+                    
+                    <div className="bg-fuchsia-50/60 p-4 rounded-xl border border-fuchsia-100 flex items-center justify-between shadow-sm">
+                      <div>
+                        <h4 className="text-sm font-bold text-fuchsia-800 flex items-center gap-1.5"><Sparkles className="w-4 h-4"/> ป้ายสินค้าใหม่ (New Arrival)</h4>
+                        <p className="text-[10px] text-fuchsia-600 mt-0.5">เปิดเพื่อแสดงป้าย NEW และจัดให้อยู่บนสุดอัตโนมัติ</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" name="isNew" defaultChecked={modal.data?.isNew} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-fuchsia-500"></div>
+                      </label>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1">รายละเอียด (Description)</label>
                       <textarea 
