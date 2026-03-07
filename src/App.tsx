@@ -65,6 +65,9 @@ export interface Product {
   description: string;
   images?: string[];
   isNew?: boolean; // เพิ่มฟิลด์สินค้าใหม่
+  category?: string; // หมวดหมู่
+  artist?: string;   // ศิลปิน
+  event?: string;    // งาน/อีเวนต์
 }
 
 export interface ActualExpense {
@@ -148,6 +151,9 @@ export interface SystemSettings {
   addShippingFee?: number | string;        // Add this (ค่าจัดส่งชิ้นต่อไป)
   pickupFee?: number | string;             // Add this (ค่าธรรมเนียมการนัดรับ)
   productOrder?: string;                   // เพิ่มฟิลด์สำหรับจำตำแหน่งการจัดเรียงสินค้า
+  productCategories?: string; // เพิ่มฟิลด์เก็บหมวดหมู่
+  artistCategories?: string;  // เพิ่มฟิลด์เก็บรายชื่อศิลปิน
+  eventCategories?: string;   // เพิ่มฟิลด์เก็บหมวดหมู่งาน
 }
 
 // --- CONFIGURATION ---
@@ -690,7 +696,7 @@ function App() {
 
   // Drag & Drop Image Upload States
   const [isProductImgDragging, setIsProductImgDragging] = useState<boolean>(false);
-  // const [isProfileImgDragging, setIsProfileImgDragging] = useState<boolean>(false); // REMOVED: ไม่ได้ใช้งานใน UI ปัจจุบัน
+  const [isProfileImgDragging, setIsProfileImgDragging] = useState<boolean>(false);
   
   // Image Zoom State
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -703,7 +709,7 @@ function App() {
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [orderSearchQuery, setOrderSearchQuery] = useState<string>('');
-  // const [userSearchQuery, setUserSearchQuery] = useState<string>(''); // REMOVED: ไม่ได้ใช้งานใน UI ปัจจุบัน
+  const [userSearchQuery, setUserSearchQuery] = useState<string>(''); // กู้คืน State กลับมา
   const [usersList, setUsersList] = useState<AppUser[]>([]);
 
   // Category States
@@ -721,6 +727,10 @@ function App() {
   const [calInnerMode, setCalInnerMode] = useState<'day'|'month'|'year'>('day');
   
   const [dashStatusFilter, setDashStatusFilter] = useState<string>('all');
+  const [dashCategoryFilter, setDashCategoryFilter] = useState<string>('all'); // เพิ่มตัวกรองหมวดหมู่
+  const [dashArtistFilter, setDashArtistFilter] = useState<string>('all');     // เพิ่มตัวกรองศิลปิน
+  const [dashEventFilter, setDashEventFilter] = useState<string>('all');       // เพิ่มตัวกรองงาน/อีเวนต์
+  
   const [dashVisibleOrdersCount, setDashVisibleOrdersCount] = useState<number>(20);
   const [isDashScrolled, setIsDashScrolled] = useState<boolean>(false);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState<boolean>(false);
@@ -941,6 +951,36 @@ function App() {
             if (fetchedSettings.bankOptions) {
                try { setBankOptions(typeof fetchedSettings.bankOptions === 'string' ? JSON.parse(fetchedSettings.bankOptions) : fetchedSettings.bankOptions); } catch(e){}
             }
+            // โหลดข้อมูลหมวดหมู่จากฐานข้อมูล
+            let pCats = [];
+            if (fetchedSettings.productCategories) {
+               try { pCats = typeof fetchedSettings.productCategories === 'string' ? JSON.parse(fetchedSettings.productCategories) : fetchedSettings.productCategories; } catch(e){}
+            }
+            if (!pCats || pCats.length === 0) {
+               const local = localStorage.getItem('localProductCategories');
+               if (local) { try { pCats = JSON.parse(local); } catch(e){} }
+            }
+            if (Array.isArray(pCats) && pCats.length > 0) setProductCategories(pCats);
+
+            let aCats = [];
+            if (fetchedSettings.artistCategories) {
+               try { aCats = typeof fetchedSettings.artistCategories === 'string' ? JSON.parse(fetchedSettings.artistCategories) : fetchedSettings.artistCategories; } catch(e){}
+            }
+            if (!aCats || aCats.length === 0) {
+               const local = localStorage.getItem('localArtistCategories');
+               if (local) { try { aCats = JSON.parse(local); } catch(e){} }
+            }
+            if (Array.isArray(aCats) && aCats.length > 0) setArtistCategories(aCats);
+
+            let eCats = [];
+            if (fetchedSettings.eventCategories) {
+               try { eCats = typeof fetchedSettings.eventCategories === 'string' ? JSON.parse(fetchedSettings.eventCategories) : fetchedSettings.eventCategories; } catch(e){}
+            }
+            if (!eCats || eCats.length === 0) {
+               const local = localStorage.getItem('localEventCategories');
+               if (local) { try { eCats = JSON.parse(local); } catch(e){} }
+            }
+            if (Array.isArray(eCats) && eCats.length > 0) setEventCategories(eCats);
           }
           if (json.data.carts && json.data.carts.length > 0) {
              const loadedCarts: Record<string, CartItem[]> = {};
@@ -1231,13 +1271,11 @@ function App() {
     });
   };
 
-  // --- AUTH HANDLERS ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isProcessing) return;
     setIsProcessing(true); setIsLoading(true);
     
-    // Simulate API Network Delay
     await new Promise(resolve => setTimeout(resolve, 800));
 
     const cleanUsername = loginUsername.trim().toLowerCase();
@@ -1251,19 +1289,16 @@ function App() {
 
     setCurrentUser(user);
     
-    // ขออนุญาตแจ้งเตือนทันทีที่ล็อกอินในฐานะแอดมินหรือพนักงาน (เพื่อหลีกเลี่ยงการถูกบล็อกโดยเบราว์เซอร์)
     if (user.role !== 'user' && "Notification" in window && Notification.permission !== "granted") {
        Notification.requestPermission();
     }
 
-    // บันทึกหรือลบข้อมูลการเข้าระบบตามที่ผู้ใช้เลือก "ให้อยู่ในระบบต่อ"
     if (rememberMe) {
       localStorage.setItem('savedUserId', user.id);
     } else {
       localStorage.removeItem('savedUserId');
     }
 
-    // ถ้าล็อกอินสำเร็จผ่าน Modal (ขณะกำลังดูสินค้า) ให้ปิด Modal และอยู่ในหน้าเดิม
     if (modal.isOpen && modal.type === 'auth') {
        closeModal();
        showToast(`เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ ${user.name}`);
@@ -1334,50 +1369,78 @@ function App() {
     setCurrentUser(null);
     setLoginUsername('');
     setLoginPassword('');
-    localStorage.removeItem('savedUserId'); // เคลียร์ข้อมูลการจำเข้าระบบ
-    sessionStorage.removeItem('hasSeenAnnouncement'); // เคลียร์ความจำป๊อปอัพ เพื่อให้เข้าสู่ระบบครั้งหน้ามันเด้งเตือนได้ใหม่
-    setHasSeenAnnouncement(false); // รีเซ็ต State เพื่อให้ล็อกอินเข้ามาใหม่ ป๊อปอัพแสดงได้อีกครั้ง
+    localStorage.removeItem('savedUserId');
+    sessionStorage.removeItem('hasSeenAnnouncement');
+    setHasSeenAnnouncement(false);
     handleTabSwitch('store');
     setIsUserMenuOpen(false);
   };
 
-  // @ts-ignore - ปิดแจ้งเตือน TS6133 ชั่วคราว (เตรียมไว้ใช้สำหรับการอัปเดตโปรไฟล์ในอนาคต)
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!currentUser || isProcessing) return;
     setIsProcessing(true); setIsLoading(true);
+    
+    // Simulate API Network Delay
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    const formData = new FormData(e.currentTarget);
-    const updatedUser = {
-      ...currentUser,
-      name: formData.get('name') as string,
-      email: formData.get('email') as string,
-      phone: formData.get('phone') as string,
-      address: formData.get('address') as string,
-      facebook: formData.get('facebook') as string,
-      bankName: formData.get('bankName') as string,
-      bankAccount: formData.get('bankAccount') as string,
-      avatar: profileAvatarUrl || currentUser.avatar,
-    };
-
-    try {
-      await callServerAPI('saveUser', updatedUser);
-      setCurrentUser(updatedUser);
-      if (localStorage.getItem('savedUser')) localStorage.setItem('savedUser', JSON.stringify(updatedUser));
-      setUsersList(usersList.map(u => u.id === currentUser.id ? updatedUser : u));
-      showToast('บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว');
-    } catch (err) {
-      showToast('อัปเดตโปรไฟล์ไม่สำเร็จ', 'error');
+    const cleanUsername = loginUsername.trim().toLowerCase();
+    const user = usersList.find(u => u.username === cleanUsername);
+    
+    if (!user || user.password !== loginPassword) {
+      showToast('ข้อมูลผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+      setIsProcessing(false); setIsLoading(false);
+      return;
     }
+
+    setCurrentUser(user);
+    
+    // ขออนุญาตแจ้งเตือนทันทีที่ล็อกอินในฐานะแอดมินหรือพนักงาน (เพื่อหลีกเลี่ยงการถูกบล็อกโดยเบราว์เซอร์)
+    if (user.role !== 'user' && "Notification" in window && Notification.permission !== "granted") {
+       Notification.requestPermission();
+    }
+
+    // บันทึกหรือลบข้อมูลการเข้าระบบตามที่ผู้ใช้เลือก "ให้อยู่ในระบบต่อ"
+    if (rememberMe) {
+      localStorage.setItem('savedUserId', user.id);
+    } else {
+      localStorage.removeItem('savedUserId');
+    }
+
+    // ถ้าล็อกอินสำเร็จผ่าน Modal (ขณะกำลังดูสินค้า) ให้ปิด Modal และอยู่ในหน้าเดิม
+    if (modal.isOpen && modal.type === 'auth') {
+       closeModal();
+       showToast(`เข้าสู่ระบบสำเร็จ ยินดีต้อนรับ ${user.name}`);
+       setIsProcessing(false); setIsLoading(false);
+       if (user.role !== 'user') {
+           setTimeout(() => handleTabSwitch('dashboard'), 300);
+       }
+       return;
+    }
+
+    handleTabSwitch(user.role === 'user' ? 'store' : 'dashboard');
+    showToast(`ยินดีต้อนรับ ${user.name} (${user.role})`);
     setIsProcessing(false); setIsLoading(false);
   };
 
-  const saveSysSettingsToDB = async (newStatuses?: OrderStatus[], newBanks?: Bank[]) => {
+  const saveSysSettingsToDB = async (newStatuses?: OrderStatus[], newBanks?: Bank[], newProdCats?: Category[], newArtCats?: Category[], newEvtCats?: Category[]) => {
+    const pCatsToSave = newProdCats || productCategories;
+    const aCatsToSave = newArtCats || artistCategories;
+    const eCatsToSave = newEvtCats || eventCategories;
+    
+    // Backup ลง LocalStorage กรณีฐานข้อมูลยังไม่สร้างคอลัมน์
+    localStorage.setItem('localProductCategories', JSON.stringify(pCatsToSave));
+    localStorage.setItem('localArtistCategories', JSON.stringify(aCatsToSave));
+    localStorage.setItem('localEventCategories', JSON.stringify(eCatsToSave));
+
     const payload = {
       ...sysSettings,
       id: sysSettings.id || 'system',
       orderStatuses: typeof (newStatuses || orderStatuses) === 'string' ? (newStatuses || orderStatuses) : JSON.stringify(newStatuses || orderStatuses),
-      bankOptions: typeof (newBanks || bankOptions) === 'string' ? (newBanks || bankOptions) : JSON.stringify(newBanks || bankOptions)
+      bankOptions: typeof (newBanks || bankOptions) === 'string' ? (newBanks || bankOptions) : JSON.stringify(newBanks || bankOptions),
+      productCategories: typeof pCatsToSave === 'string' ? pCatsToSave : JSON.stringify(pCatsToSave),
+      artistCategories: typeof aCatsToSave === 'string' ? aCatsToSave : JSON.stringify(aCatsToSave),
+      eventCategories: typeof eCatsToSave === 'string' ? eCatsToSave : JSON.stringify(eCatsToSave)
     };
     try {
       await callServerAPI('saveSettings', payload);
@@ -1409,7 +1472,7 @@ function App() {
 
   useEffect(() => {
     setDashVisibleOrdersCount(20);
-  }, [dashSearchQuery, dashDateMode, dashSelectedDate, dashDateRange, dashStatusFilter]);
+  }, [dashSearchQuery, dashDateMode, dashSelectedDate, dashDateRange, dashStatusFilter, dashCategoryFilter, dashArtistFilter, dashEventFilter]);
 
   // ============================================================================
   // REACT COMPILER OPTIMIZED (No useMemo, relies on auto-memoization)
@@ -1425,12 +1488,12 @@ function App() {
     ? orders.filter(o => o.id.toLowerCase().includes(lowerOrderQuery) || o.customer.toLowerCase().includes(lowerOrderQuery) || o.phone.includes(lowerOrderQuery))
     : orders;
 
-  // REMOVED: ตัวแปรถูกปิดไว้เพื่อแก้บัคไม่ได้ถูกใช้งาน (TS6133)
-  // const filteredUsers = usersList.filter(u => 
-  //   u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
-  //   u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
-  //   u.id.toLowerCase().includes(userSearchQuery.toLowerCase())
-  // );
+  // กู้คืนฟังก์ชันกรองผู้ใช้กลับมา
+  const filteredUsers = usersList.filter(u => 
+    u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+    u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+    u.id.toLowerCase().includes(userSearchQuery.toLowerCase())
+  );
 
   const cartStats = cart.reduce((acc, item) => {
     acc.cartSubtotal += item.product.price * item.qty;
@@ -1507,6 +1570,17 @@ function App() {
     });
   }
 
+  // --- หมวดหมู่ตัวกรองเพิ่มเติม (Category, Artist, Event) ---
+  if (dashCategoryFilter !== 'all') {
+    baseDashOrders = baseDashOrders.filter(o => o.items.some(item => products.find(p => p.id === item.id)?.category === dashCategoryFilter));
+  }
+  if (dashArtistFilter !== 'all') {
+    baseDashOrders = baseDashOrders.filter(o => o.items.some(item => products.find(p => p.id === item.id)?.artist === dashArtistFilter));
+  }
+  if (dashEventFilter !== 'all') {
+    baseDashOrders = baseDashOrders.filter(o => o.items.some(item => products.find(p => p.id === item.id)?.event === dashEventFilter));
+  }
+
   const filteredDashOrders = dashStatusFilter !== 'all' 
     ? baseDashOrders.filter(o => o.status === dashStatusFilter)
     : baseDashOrders;
@@ -1520,20 +1594,81 @@ function App() {
   let totalShippingFee = 0;
   let totalActualExpenses = 0;
   
-  type ProductSales = { [key: string]: { name: string; qty: number; revenue: number } };
+  type ProductSales = { [key: string]: { name: string; qty: number; revenue: number; img: string } };
   const productSales: ProductSales = {};
   const statusCounts: Record<string, number> = {};
+  
+  type GroupSales = { [key: string]: { name: string; qty: number; cost: number; fee: number; revenue: number; img: string; maxItemQty: number; items?: {name: string, qty: number}[] } };
+  const categorySales: GroupSales = {};
+  const artistSales: GroupSales = {};
+  const eventSales: GroupSales = {};
 
   orderStatuses.forEach(s => { statusCounts[s.id] = 0; });
 
   validOrders.forEach(o => {
     totalShippingFee += Number(o.shippingFee || 0);
     o.items.forEach(item => {
-      totalProductRevenue += (Number(item.price) * Number(item.qty));
-      totalCarryingFee += ((Number(item.carryingFee) || 0) * Number(item.qty));
-      if (!productSales[item.id]) productSales[item.id] = { name: item.name, qty: 0, revenue: 0 };
+      const itemCost = Number(item.price) * Number(item.qty);
+      const itemFee = (Number(item.carryingFee) || 0) * Number(item.qty);
+      const itemRev = itemCost + itemFee; // รวมทั้งต้นทุนและค่าหิ้ว
+
+      totalProductRevenue += itemCost;
+      totalCarryingFee += itemFee;
+
+      const product = products.find(p => p.id === item.id);
+      const img = product?.imageUrl || '';
+      const cat = product?.category || 'ไม่ระบุ';
+      const art = product?.artist || 'ไม่ระบุ';
+      const evt = product?.event || 'ไม่ระบุ';
+
+      if (!productSales[item.id]) productSales[item.id] = { name: item.name, qty: 0, revenue: 0, img };
       productSales[item.id].qty += Number(item.qty);
-      productSales[item.id].revenue += (Number(item.price) * Number(item.qty));
+      productSales[item.id].revenue += itemRev;
+
+      // Category Aggregation
+      if (cat) {
+          if (!categorySales[cat]) categorySales[cat] = { name: cat, qty: 0, cost: 0, fee: 0, revenue: 0, img, maxItemQty: 0, items: [] };
+          categorySales[cat].qty += Number(item.qty);
+          categorySales[cat].cost += itemCost;
+          categorySales[cat].fee += itemFee;
+          categorySales[cat].revenue += itemRev;
+          if (Number(item.qty) > categorySales[cat].maxItemQty && img) {
+              categorySales[cat].maxItemQty = Number(item.qty);
+              categorySales[cat].img = img;
+          }
+      }
+
+      // Artist Aggregation
+      if (art) {
+          if (!artistSales[art]) artistSales[art] = { name: art, qty: 0, cost: 0, fee: 0, revenue: 0, img, maxItemQty: 0, items: [] };
+          artistSales[art].qty += Number(item.qty);
+          artistSales[art].cost += itemCost;
+          artistSales[art].fee += itemFee;
+          artistSales[art].revenue += itemRev;
+          if (Number(item.qty) > artistSales[art].maxItemQty && img) {
+              artistSales[art].maxItemQty = Number(item.qty);
+              artistSales[art].img = img;
+          }
+          const existingArtItem = artistSales[art].items!.find(i => i.name === item.name);
+          if (existingArtItem) existingArtItem.qty += Number(item.qty);
+          else artistSales[art].items!.push({ name: item.name, qty: Number(item.qty) });
+      }
+
+      // Event Aggregation
+      if (evt) {
+          if (!eventSales[evt]) eventSales[evt] = { name: evt, qty: 0, cost: 0, fee: 0, revenue: 0, img, maxItemQty: 0, items: [] };
+          eventSales[evt].qty += Number(item.qty);
+          eventSales[evt].cost += itemCost;
+          eventSales[evt].fee += itemFee;
+          eventSales[evt].revenue += itemRev;
+          if (Number(item.qty) > eventSales[evt].maxItemQty && img) {
+              eventSales[evt].maxItemQty = Number(item.qty);
+              eventSales[evt].img = img;
+          }
+          const existingEvtItem = eventSales[evt].items!.find(i => i.name === item.name);
+          if (existingEvtItem) existingEvtItem.qty += Number(item.qty);
+          else eventSales[evt].items!.push({ name: item.name, qty: Number(item.qty) });
+      }
     });
   });
 
@@ -1548,10 +1683,14 @@ function App() {
   });
 
   const topProducts = Object.values(productSales).sort((a, b) => b.qty - a.qty);
+  const topCategories = Object.values(categorySales).sort((a, b) => b.revenue - a.revenue);
+  const topArtists = Object.values(artistSales).sort((a, b) => b.revenue - a.revenue);
+  const topEvents = Object.values(eventSales).sort((a, b) => b.revenue - a.revenue);
   
   const dashboardStats = { 
     totalRevenue, totalBaseOrders, totalProductRevenue, totalCarryingFee, 
-    totalShippingFee, totalActualExpenses, topProducts, statusCounts
+    totalShippingFee, totalActualExpenses, topProducts, statusCounts,
+    topCategories, topArtists, topEvents
   };
 
   const handleDeleteUser = async (id: string) => {
@@ -2401,10 +2540,9 @@ function App() {
     setPreviewUrls(prev => prev.filter((_, i) => i !== indexToRemove));
   };
 
-  // @ts-ignore - ปิดแจ้งเตือนไม่ได้ใช้งาน (TS6133) 
   const handleProfileImageDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
-    // setIsProfileImgDragging(false);
+    setIsProfileImgDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
       handleProfileImageFile(file);
@@ -2417,21 +2555,21 @@ function App() {
   const handleAddCategory = (type: 'product' | 'artist' | 'event') => {
     const newId = `cat_${Math.floor(Math.random() * 10000)}`;
     const newCat = { id: newId, name: 'หมวดหมู่ใหม่' };
-    if (type === 'product') setProductCategories(prev => [...prev, newCat]);
-    if (type === 'artist') setArtistCategories(prev => [...prev, newCat]);
-    if (type === 'event') setEventCategories(prev => [...prev, newCat]);
+    if (type === 'product') { const n = [...productCategories, newCat]; setProductCategories(n); saveSysSettingsToDB(undefined, undefined, n); }
+    if (type === 'artist') { const n = [...artistCategories, newCat]; setArtistCategories(n); saveSysSettingsToDB(undefined, undefined, undefined, n); }
+    if (type === 'event') { const n = [...eventCategories, newCat]; setEventCategories(n); saveSysSettingsToDB(undefined, undefined, undefined, undefined, n); }
   };
 
   const handleUpdateCategory = (type: 'product' | 'artist' | 'event', id: string, newName: string) => {
-    if (type === 'product') setProductCategories(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
-    if (type === 'artist') setArtistCategories(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
-    if (type === 'event') setEventCategories(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
+    if (type === 'product') { const n = productCategories.map(c => c.id === id ? { ...c, name: newName } : c); setProductCategories(n); saveSysSettingsToDB(undefined, undefined, n); }
+    if (type === 'artist') { const n = artistCategories.map(c => c.id === id ? { ...c, name: newName } : c); setArtistCategories(n); saveSysSettingsToDB(undefined, undefined, undefined, n); }
+    if (type === 'event') { const n = eventCategories.map(c => c.id === id ? { ...c, name: newName } : c); setEventCategories(n); saveSysSettingsToDB(undefined, undefined, undefined, undefined, n); }
   };
 
   const handleRemoveCategory = (type: 'product' | 'artist' | 'event', id: string) => {
-    if (type === 'product') setProductCategories(prev => prev.filter(c => c.id !== id));
-    if (type === 'artist') setArtistCategories(prev => prev.filter(c => c.id !== id));
-    if (type === 'event') setEventCategories(prev => prev.filter(c => c.id !== id));
+    if (type === 'product') { const n = productCategories.filter(c => c.id !== id); setProductCategories(n); saveSysSettingsToDB(undefined, undefined, n); }
+    if (type === 'artist') { const n = artistCategories.filter(c => c.id !== id); setArtistCategories(n); saveSysSettingsToDB(undefined, undefined, undefined, n); }
+    if (type === 'event') { const n = eventCategories.filter(c => c.id !== id); setEventCategories(n); saveSysSettingsToDB(undefined, undefined, undefined, undefined, n); }
   };
 
   const handleProductSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -2452,7 +2590,10 @@ function App() {
       status: Number(formData.get('stock')) > 0 ? 'available' : 'sold_out',
       variations: cleanVariations,
       description: (formData.get('description') as string) || '',
-      isNew: isNewChecked
+      isNew: isNewChecked,
+      category: (formData.get('category') as string) || '',
+      artist: (formData.get('artist') as string) || '',
+      event: (formData.get('event') as string) || ''
     };
     saveProduct(newProduct);
   };
@@ -2806,9 +2947,8 @@ function App() {
             <div className="w-12 h-12 bg-gradient-to-tr from-blue-500 to-indigo-500 rounded-full shadow-lg shadow-blue-500/40" />
           </div>
 
-          {/* Nav Items */}
           {mobileNavItems.map(item => {
-            const isActive = item.id === 'profile_menu' ? (isUserMenuOpen || activeTab === 'profile' || activeTab === 'settings') : (activeTab === item.id && !isUserMenuOpen);
+            const isActive = item.id === 'profile_menu' ? (isUserMenuOpen || modal.type === 'profile' || activeTab === 'settings') : (activeTab === item.id && !isUserMenuOpen && modal.type !== 'profile');
             return (
               <button 
                 key={item.id} 
@@ -2865,40 +3005,40 @@ function App() {
                 </div>
                 
                 <div className={`w-full transition-all duration-300 ease-in-out ${isDashScrolled ? 'px-0' : 'px-4 sm:px-6 lg:px-8 xl:px-10'}`}>
-                  <div className={`flex flex-col lg:flex-row w-full gap-3 bg-white/95 backdrop-blur-md p-2 sm:p-3 transition-all duration-300 ease-in-out ${isDashScrolled ? 'rounded-none border-y border-slate-200 shadow-none' : 'rounded-2xl border border-slate-200 shadow-[0_4px_15px_rgba(0,0,0,0.02)]'}`}>
+                  <div className={`flex flex-col xl:flex-row w-full gap-2 sm:gap-3 bg-white/95 backdrop-blur-md p-2.5 sm:p-3 transition-all duration-300 ease-in-out ${isDashScrolled ? 'rounded-none border-y border-slate-200 shadow-none' : 'rounded-2xl border border-slate-200 shadow-[0_4px_15px_rgba(0,0,0,0.02)]'}`}>
                     
                     {/* Top Row: Search & Mobile Toggle */}
-                    <div className="flex gap-2 w-full lg:flex-1">
+                    <div className="flex gap-2 w-full xl:w-[280px] flex-shrink-0">
                       <div className="relative flex-1">
-                        <input type="text" placeholder="ค้นหา ID, ชื่อ, เบอร์..." value={dashSearchQuery} onChange={(e) => setDashSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 shadow-sm transition-colors" />
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                        <input type="text" placeholder="ค้นหา ID, ชื่อ, เบอร์..." value={dashSearchQuery} onChange={(e) => setDashSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2 h-[38px] bg-white border border-slate-200 rounded-xl text-[13px] sm:text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 shadow-sm transition-colors" />
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       </div>
                       <button 
                         onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
-                        className={`lg:hidden flex-shrink-0 border rounded-xl px-3 flex items-center justify-center transition-colors shadow-sm ${
-                          dashDateMode !== 'all' || dashStatusFilter !== 'all' || isMobileFiltersOpen
+                        className={`xl:hidden flex-shrink-0 border rounded-xl px-3 flex items-center justify-center transition-colors shadow-sm h-[38px] ${
+                          dashDateMode !== 'all' || dashStatusFilter !== 'all' || dashCategoryFilter !== 'all' || dashArtistFilter !== 'all' || dashEventFilter !== 'all' || isMobileFiltersOpen
                             ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
                             : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                         }`}
                       >
-                        <Filter className="w-5 h-5" />
+                        <Filter className="w-4 h-4" />
                       </button>
                     </div>
 
-                    {/* Filters Row (Collapsible on Mobile) */}
-                    <div className={`flex-col sm:flex-row gap-2 w-full lg:w-auto ${isMobileFiltersOpen ? 'flex animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden lg:flex'}`}>
+                    {/* Filters Row (Grid on Mobile, Flex on Desktop) */}
+                    <div className={`grid grid-cols-2 sm:flex sm:flex-wrap xl:flex-nowrap gap-2 w-full flex-1 xl:justify-end ${isMobileFiltersOpen ? 'grid animate-in fade-in slide-in-from-top-2 duration-200' : 'hidden xl:flex'}`}>
                       
                       {/* Date Filter Group (Dropdown + Samsung Style Calendar UI) */}
-                      <div className="relative flex items-center flex-1 sm:flex-none z-20">
+                      <div className="relative col-span-2 sm:flex-none z-20">
                         
                         {/* Composite Dropdown + Button Design */}
                         <div 
-                          className={`flex items-stretch w-full sm:w-[360px] border rounded-xl shadow-sm overflow-hidden transition-all ${
+                          className={`flex items-stretch w-full sm:w-auto sm:min-w-[260px] border rounded-xl shadow-sm overflow-hidden transition-all h-[38px] ${
                             isDatePickerOpen ? 'border-purple-400 ring-2 ring-purple-500/20' : 'border-slate-200 hover:border-purple-300'
                           }`}
                         >
                           {/* Left Dropdown Section */}
-                          <div className="relative flex items-center bg-slate-50/80 border-r border-slate-200 w-28 sm:w-32 flex-shrink-0 transition-colors hover:bg-slate-100">
+                          <div className="relative flex items-center bg-slate-50/80 border-r border-slate-200 w-24 sm:w-28 flex-shrink-0 transition-colors hover:bg-slate-100">
                             <select
                               value={dashDateMode}
                               onChange={(e) => {
@@ -2919,7 +3059,7 @@ function App() {
                                 // ปิดป๊อปอัพเสมอเมื่อเลือกจาก dropdown (ให้คลิกเปิดเองที่ช่องขวา)
                                 setIsDatePickerOpen(false); 
                               }}
-                              className="appearance-none pl-9 pr-2 py-2.5 bg-transparent text-slate-700 font-bold text-sm outline-none cursor-pointer w-full h-full z-10"
+                              className="appearance-none pl-8 pr-2 py-0 bg-transparent text-slate-700 font-bold text-[13px] sm:text-sm outline-none cursor-pointer w-full h-full z-10"
                             >
                               <option value="all">ทุกเวลา</option>
                               <option value="day">วันที่</option>
@@ -2928,15 +3068,15 @@ function App() {
                               <option value="year">ปี</option>
                               <option value="range">ช่วงเวลา</option>
                             </select>
-                            <Calendar className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none z-0" />
+                            <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none z-0" />
                           </div>
 
                           {/* Right Value Section */}
                           <div 
                             onClick={() => { if(dashDateMode !== 'all') setIsDatePickerOpen(!isDatePickerOpen); }}
-                            className={`flex-1 flex items-center justify-between px-3 py-2.5 bg-white transition-colors min-w-0 ${dashDateMode === 'all' ? 'opacity-60 bg-slate-50 cursor-default' : 'cursor-pointer hover:bg-slate-50/50'}`}
+                            className={`flex-1 flex items-center justify-between px-3 bg-white transition-colors min-w-0 h-full ${dashDateMode === 'all' ? 'opacity-60 bg-slate-50 cursor-default' : 'cursor-pointer hover:bg-slate-50/50'}`}
                           >
-                            <span className="text-sm font-medium text-slate-700 truncate pr-2">
+                            <span className="text-[13px] sm:text-sm font-medium text-slate-700 truncate pr-2 mt-0.5">
                               {formatDisplayDate()}
                             </span>
                             
@@ -2950,7 +3090,7 @@ function App() {
                                   <X className="w-3.5 h-3.5" />
                                 </div>
                               )}
-                              <Calendar className={`w-4 h-4 ${dashDateMode === 'all' ? 'text-slate-300' : 'text-purple-500'}`} />
+                              <Calendar className={`w-3.5 h-3.5 ${dashDateMode === 'all' ? 'text-slate-300' : 'text-purple-500'}`} />
                             </div>
                           </div>
                         </div>
@@ -2959,7 +3099,7 @@ function App() {
                         {isDatePickerOpen && dashDateMode !== 'all' && (
                           <>
                             <div className="fixed inset-0 z-30" onClick={() => setIsDatePickerOpen(false)}></div>
-                            <div className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 w-[320px] bg-white rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-slate-200 z-40 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left sm:origin-top-right flex flex-col">
+                            <div className="absolute top-[calc(100%+0.5rem)] left-0 mt-1 w-full sm:w-[320px] bg-white rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] border border-slate-200 z-40 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 origin-top-left flex flex-col">
                               
                               {/* Calendar Grid */}
                               <div className="p-4 sm:p-5 relative bg-white min-h-[300px] flex flex-col">
@@ -3086,13 +3226,38 @@ function App() {
                         )}
                       </div>
 
-                      <div className="relative flex-1 sm:w-40 flex-shrink-0 z-10">
-                        <select value={dashStatusFilter} onChange={(e) => setDashStatusFilter(e.target.value)} className="appearance-none pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-emerald-400 shadow-sm font-medium text-slate-700 cursor-pointer w-full transition-colors">
+                      <div className="relative col-span-1 sm:flex-1 sm:min-w-[120px] xl:max-w-[140px] z-10">
+                        <select value={dashStatusFilter} onChange={(e) => setDashStatusFilter(e.target.value)} className="appearance-none pl-8 pr-6 py-2 h-[38px] bg-white border border-slate-200 rounded-xl text-[13px] sm:text-sm outline-none focus:border-emerald-400 shadow-sm font-medium text-slate-700 cursor-pointer w-full transition-colors">
                           <option value="all">ทุกสถานะ</option>
                           {orderStatuses.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                         </select>
-                        <Filter className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                        <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                       </div>
+
+                      <div className="relative col-span-1 sm:flex-1 sm:min-w-[120px] xl:max-w-[140px] z-10">
+                        <select value={dashCategoryFilter} onChange={(e) => setDashCategoryFilter(e.target.value)} className="appearance-none pl-8 pr-6 py-2 h-[38px] bg-white border border-slate-200 rounded-xl text-[13px] sm:text-sm outline-none focus:border-indigo-400 shadow-sm font-medium text-slate-700 cursor-pointer w-full transition-colors">
+                          <option value="all">ทุกหมวดหมู่</option>
+                          {productCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                        <Tags className="w-3.5 h-3.5 text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+
+                      <div className="relative col-span-1 sm:flex-1 sm:min-w-[120px] xl:max-w-[140px] z-10">
+                        <select value={dashArtistFilter} onChange={(e) => setDashArtistFilter(e.target.value)} className="appearance-none pl-8 pr-6 py-2 h-[38px] bg-white border border-slate-200 rounded-xl text-[13px] sm:text-sm outline-none focus:border-pink-400 shadow-sm font-medium text-slate-700 cursor-pointer w-full transition-colors">
+                          <option value="all">ทุกศิลปิน</option>
+                          {artistCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                        <Star className="w-3.5 h-3.5 text-pink-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+
+                      <div className="relative col-span-1 sm:flex-1 sm:min-w-[120px] xl:max-w-[140px] z-10">
+                        <select value={dashEventFilter} onChange={(e) => setDashEventFilter(e.target.value)} className="appearance-none pl-8 pr-6 py-2 h-[38px] bg-white border border-slate-200 rounded-xl text-[13px] sm:text-sm outline-none focus:border-emerald-400 shadow-sm font-medium text-slate-700 cursor-pointer w-full transition-colors">
+                          <option value="all">ทุกงาน/อีเวนต์</option>
+                          {eventCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                        <Ticket className="w-3.5 h-3.5 text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
+
                     </div>
                   </div>
                 </div>
@@ -3198,15 +3363,25 @@ function App() {
                 {/* Mobile View */}
                 <TableScrollWrapper className="md:hidden flex flex-col gap-3 overflow-y-auto flex-1 pr-1">
                   {dashboardStats.topProducts.map((p, idx) => (
-                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-4 ease-out" style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both', animationDuration: '600ms'}}>
-                      <div className="flex justify-between items-start">
-                         <span className="font-bold text-slate-300 text-lg leading-none">#{idx + 1}</span>
-                         <span className="font-bold text-emerald-600">฿{p.revenue.toLocaleString()}</span>
+                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex gap-4 animate-in fade-in slide-in-from-bottom-4 ease-out" style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both', animationDuration: '600ms'}}>
+                      <div className="flex flex-col items-center justify-center w-12 flex-shrink-0">
+                         <span className="font-black text-slate-300 text-lg leading-none mb-1.5">#{idx + 1}</span>
+                         <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shadow-sm">
+                            {p.img ? <img src={p.img} className="w-full h-full object-cover"/> : <ImageIcon className="w-5 h-5 text-slate-300"/>}
+                         </div>
                       </div>
-                      <p className="font-bold text-slate-700 text-sm leading-snug">{p.name}</p>
-                      <div className="flex justify-between items-center mt-1">
-                        <span className="text-xs text-slate-500">ขายแล้ว:</span>
-                        <span className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md text-xs">{p.qty} ชิ้น</span>
+                      <div className="flex flex-col justify-between flex-1 min-w-0 py-0.5">
+                         <p className="font-bold text-slate-700 text-sm leading-snug line-clamp-2">{p.name}</p>
+                         <div className="flex justify-between items-end mt-2 border-t border-slate-200/60 pt-2">
+                            <div className="flex flex-col">
+                               <span className="text-[10px] text-slate-500 font-bold mb-0.5">ยอดขายรวม</span>
+                               <span className="font-black text-emerald-600 leading-none">฿{p.revenue.toLocaleString()}</span>
+                            </div>
+                            <div className="flex flex-col items-end">
+                               <span className="text-[10px] text-slate-500 font-bold mb-0.5">จำนวน</span>
+                               <span className="font-mono font-bold text-blue-600 leading-none">{p.qty} ชิ้น</span>
+                            </div>
+                         </div>
                       </div>
                     </div>
                   ))}
@@ -3219,6 +3394,7 @@ function App() {
                     <thead className="sticky top-0 bg-white/95 backdrop-blur-sm z-10">
                       <tr className="text-[10px] text-slate-400 uppercase shadow-[0_4px_10px_rgba(0,0,0,0.02)]">
                         <th className="pb-3 pt-2 pl-2 font-bold w-12 rounded-bl-xl">Rank</th>
+                        <th className="pb-3 pt-2 font-bold w-16 text-center">รูป</th>
                         <th className="pb-3 pt-2 font-bold min-w-[150px]">ชื่อสินค้า (Item Name)</th>
                         <th className="pb-3 pt-2 font-bold text-center w-28">ขายแล้ว (ชิ้น)</th>
                         <th className="pb-3 pt-2 pr-2 font-bold text-right w-36 rounded-br-xl">ยอดรวม (THB)</th>
@@ -3228,6 +3404,11 @@ function App() {
                       {dashboardStats.topProducts.map((p, idx) => (
                         <tr key={idx} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/70 transition-colors group animate-in fade-in slide-in-from-bottom-4 ease-out" style={{animationDelay: `${Math.min(idx * 80, 800)}ms`, animationFillMode: 'both', animationDuration: '1000ms'}}>
                           <td className="py-3.5 pl-2 font-bold text-slate-300 group-hover:text-amber-500 transition-colors">#{idx + 1}</td>
+                          <td className="py-3.5">
+                            <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shadow-sm mx-auto">
+                              {p.img ? <img src={p.img} className="w-full h-full object-cover" /> : <ImageIcon className="w-4 h-4 text-slate-300" />}
+                            </div>
+                          </td>
                           <td className="py-3.5 font-bold text-slate-700 truncate max-w-[150px] sm:max-w-[250px] lg:max-w-[300px]">{p.name}</td>
                           <td className="py-3.5 text-center font-mono font-bold text-blue-600">
                             <span className="bg-blue-50/80 px-3 py-1 rounded-lg border border-blue-100/50">{p.qty}</span>
@@ -3235,10 +3416,181 @@ function App() {
                           <td className="py-3.5 pr-2 text-right font-bold text-emerald-600">฿{p.revenue.toLocaleString()}</td>
                         </tr>
                       ))}
-                      {dashboardStats.topProducts.length === 0 && <tr><td colSpan={4} className="text-center py-10 text-slate-400 text-xs font-medium bg-slate-50/50 rounded-lg mt-2">ไม่มีข้อมูลการขายในช่วงเวลานี้</td></tr>}
+                      {dashboardStats.topProducts.length === 0 && <tr><td colSpan={5} className="text-center py-10 text-slate-400 text-xs font-medium bg-slate-50/50 rounded-lg mt-2">ไม่มีข้อมูลการขายในช่วงเวลานี้</td></tr>}
                     </tbody>
                   </table>
                 </TableScrollWrapper>
+              </div>
+
+              {/* Category, Artist, Event Analytics Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                
+                {/* 1. Category Card */}
+                {(() => {
+                  const catTotalQty = dashboardStats.topCategories.reduce((s, c) => s + c.qty, 0);
+                  const catTotalCost = dashboardStats.topCategories.reduce((s, c) => s + c.cost, 0);
+                  const catTotalFee = dashboardStats.topCategories.reduce((s, c) => s + c.fee, 0);
+                  const catTotalRev = dashboardStats.topCategories.reduce((s, c) => s + c.revenue, 0);
+                  return (
+                    <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white p-5 sm:p-6 shadow-sm overflow-hidden flex flex-col h-[400px]">
+                      <div className="border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+                        <h3 className="font-bold text-slate-800 flex items-center justify-between">
+                          <span className="flex items-center gap-2"><Tags className="w-5 h-5 text-indigo-500"/> ยอดขายตามหมวดหมู่</span>
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">รวม {dashboardStats.topCategories.length} หมวด</span>
+                        </h3>
+                        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ต้นทุน</span>
+                            <span className="font-bold text-slate-700 text-xs sm:text-sm leading-none">฿{catTotalCost.toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ค่าหิ้ว</span>
+                            <span className="font-bold text-emerald-600 text-xs sm:text-sm leading-none">฿{catTotalFee.toLocaleString()}</span>
+                          </div>
+                          <div className="text-right border-l border-slate-100 pl-2">
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ยอดรวม <span className="font-medium">({catTotalQty} ชิ้น)</span></span>
+                            <span className="font-black text-indigo-600 text-sm sm:text-base leading-none drop-shadow-sm">฿{catTotalRev.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-1">
+                        {dashboardStats.topCategories.map((c, i) => (
+                          <div key={i} className="flex items-center gap-3 p-3 bg-indigo-50/30 rounded-xl border border-indigo-50 hover:bg-indigo-50 transition-colors group animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: `${i * 50}ms`, animationFillMode: 'both'}}>
+                            <div className="w-10 h-10 rounded-lg bg-white border border-indigo-100 overflow-hidden flex-shrink-0 flex items-center justify-center shadow-sm">
+                              {c.img ? <img src={c.img} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"/> : <ImageIcon className="w-5 h-5 text-slate-300" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm text-slate-800 truncate">{c.name}</p>
+                              <p className="text-[10px] text-slate-500 font-medium mt-0.5">ขายแล้ว {c.qty.toLocaleString()} ชิ้น</p>
+                            </div>
+                            <div className="text-right flex-shrink-0 flex flex-col justify-center items-end">
+                              <p className="font-bold text-indigo-600 text-sm leading-tight">฿{c.revenue.toLocaleString()}</p>
+                              <p className="text-[9px] text-slate-400 font-medium mt-0.5">(ทุน {c.cost.toLocaleString()} + หิ้ว {c.fee.toLocaleString()})</p>
+                            </div>
+                          </div>
+                        ))}
+                        {dashboardStats.topCategories.length === 0 && <div className="text-center py-10 text-slate-400 text-xs font-medium bg-indigo-50/20 border border-dashed border-indigo-100 rounded-xl mt-2">ไม่มีข้อมูล</div>}
+                      </TableScrollWrapper>
+                    </div>
+                  );
+                })()}
+
+                {/* 2. Artist Card */}
+                {(() => {
+                  const artTotalQty = dashboardStats.topArtists.reduce((s, c) => s + c.qty, 0);
+                  const artTotalCost = dashboardStats.topArtists.reduce((s, c) => s + c.cost, 0);
+                  const artTotalFee = dashboardStats.topArtists.reduce((s, c) => s + c.fee, 0);
+                  const artTotalRev = dashboardStats.topArtists.reduce((s, c) => s + c.revenue, 0);
+                  return (
+                    <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white p-5 sm:p-6 shadow-sm overflow-hidden flex flex-col h-[400px]">
+                      <div className="border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+                        <h3 className="font-bold text-slate-800 flex items-center justify-between">
+                          <span className="flex items-center gap-2"><Star className="w-5 h-5 text-pink-500"/> ยอดขายตามศิลปิน</span>
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">รวม {dashboardStats.topArtists.length} รายชื่อ</span>
+                        </h3>
+                        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ต้นทุน</span>
+                            <span className="font-bold text-slate-700 text-xs sm:text-sm leading-none">฿{artTotalCost.toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ค่าหิ้ว</span>
+                            <span className="font-bold text-emerald-600 text-xs sm:text-sm leading-none">฿{artTotalFee.toLocaleString()}</span>
+                          </div>
+                          <div className="text-right border-l border-slate-100 pl-2">
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ยอดรวม <span className="font-medium">({artTotalQty} ชิ้น)</span></span>
+                            <span className="font-black text-pink-600 text-sm sm:text-base leading-none drop-shadow-sm">฿{artTotalRev.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-1">
+                        {dashboardStats.topArtists.map((c, i) => (
+                          <div key={i} className="flex flex-col gap-2 p-3 bg-pink-50/30 rounded-xl border border-pink-50 hover:bg-pink-50 transition-colors group animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: `${i * 50}ms`, animationFillMode: 'both'}}>
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1 min-w-0 pr-2">
+                                <p className="font-bold text-sm text-slate-800 truncate">{c.name}</p>
+                                <p className="text-[10px] text-slate-500 font-medium mt-0.5">ขายแล้วรวม {c.qty.toLocaleString()} ชิ้น</p>
+                              </div>
+                              <div className="text-right flex-shrink-0 flex flex-col justify-center items-end">
+                                <p className="font-black text-pink-600 text-sm leading-tight">฿{c.revenue.toLocaleString()}</p>
+                                <p className="text-[9px] text-slate-400 font-medium mt-0.5">(ทุน ฿{c.cost.toLocaleString()} + หิ้ว ฿{c.fee.toLocaleString()})</p>
+                              </div>
+                            </div>
+                            {c.items && c.items.length > 0 && (
+                               <div className="flex flex-wrap gap-1.5 mt-1 pt-2 border-t border-pink-100/50">
+                                 {c.items.map((it, idx) => (
+                                   <span key={idx} className="text-[10px] bg-white border border-pink-100 text-slate-600 px-2 py-0.5 rounded-md truncate max-w-full">
+                                     {it.name} <span className="font-bold text-pink-500 ml-1">x{it.qty}</span>
+                                   </span>
+                                 ))}
+                               </div>
+                            )}
+                          </div>
+                        ))}
+                        {dashboardStats.topArtists.length === 0 && <div className="text-center py-10 text-slate-400 text-xs font-medium bg-pink-50/20 border border-dashed border-pink-100 rounded-xl mt-2">ไม่มีข้อมูล</div>}
+                      </TableScrollWrapper>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Event Card */}
+                {(() => {
+                  const evtTotalQty = dashboardStats.topEvents.reduce((s, c) => s + c.qty, 0);
+                  const evtTotalCost = dashboardStats.topEvents.reduce((s, c) => s + c.cost, 0);
+                  const evtTotalFee = dashboardStats.topEvents.reduce((s, c) => s + c.fee, 0);
+                  const evtTotalRev = dashboardStats.topEvents.reduce((s, c) => s + c.revenue, 0);
+                  return (
+                    <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white p-5 sm:p-6 shadow-sm overflow-hidden flex flex-col h-[400px]">
+                      <div className="border-b border-slate-100 pb-3 mb-3 flex-shrink-0">
+                        <h3 className="font-bold text-slate-800 flex items-center justify-between">
+                          <span className="flex items-center gap-2"><Ticket className="w-5 h-5 text-emerald-500"/> ยอดขายตามงาน/อีเวนต์</span>
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">รวม {dashboardStats.topEvents.length} งาน</span>
+                        </h3>
+                        <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-slate-100">
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ต้นทุน</span>
+                            <span className="font-bold text-slate-700 text-xs sm:text-sm leading-none">฿{evtTotalCost.toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ค่าหิ้ว</span>
+                            <span className="font-bold text-emerald-600 text-xs sm:text-sm leading-none">฿{evtTotalFee.toLocaleString()}</span>
+                          </div>
+                          <div className="text-right border-l border-slate-100 pl-2">
+                            <span className="text-[10px] text-slate-500 font-bold block mb-0.5">ยอดรวม <span className="font-medium">({evtTotalQty} ชิ้น)</span></span>
+                            <span className="font-black text-emerald-600 text-sm sm:text-base leading-none drop-shadow-sm">฿{evtTotalRev.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-1">
+                        {dashboardStats.topEvents.map((c, i) => (
+                          <div key={i} className="flex flex-col gap-2 p-3 bg-emerald-50/30 rounded-xl border border-emerald-50 hover:bg-emerald-50 transition-colors group animate-in fade-in slide-in-from-bottom-4" style={{animationDelay: `${i * 50}ms`, animationFillMode: 'both'}}>
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1 min-w-0 pr-2">
+                                <p className="font-bold text-sm text-slate-800 truncate">{c.name}</p>
+                                <p className="text-[10px] text-slate-500 font-medium mt-0.5">ขายแล้วรวม {c.qty.toLocaleString()} ชิ้น</p>
+                              </div>
+                              <div className="text-right flex-shrink-0 flex flex-col justify-center items-end">
+                                <p className="font-black text-emerald-600 text-sm leading-tight">฿{c.revenue.toLocaleString()}</p>
+                                <p className="text-[9px] text-slate-400 font-medium mt-0.5">(ทุน ฿{c.cost.toLocaleString()} + หิ้ว ฿{c.fee.toLocaleString()})</p>
+                              </div>
+                            </div>
+                            {c.items && c.items.length > 0 && (
+                               <div className="flex flex-wrap gap-1.5 mt-1 pt-2 border-t border-emerald-100/50">
+                                 {c.items.map((it, idx) => (
+                                   <span key={idx} className="text-[10px] bg-white border border-emerald-100 text-slate-600 px-2 py-0.5 rounded-md truncate max-w-full">
+                                     {it.name} <span className="font-bold text-emerald-500 ml-1">x{it.qty}</span>
+                                   </span>
+                                 ))}
+                               </div>
+                            )}
+                          </div>
+                        ))}
+                        {dashboardStats.topEvents.length === 0 && <div className="text-center py-10 text-slate-400 text-xs font-medium bg-emerald-50/20 border border-dashed border-emerald-100 rounded-xl mt-2">ไม่มีข้อมูล</div>}
+                      </TableScrollWrapper>
+                    </div>
+                  );
+                })()}
+
               </div>
 
               <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white p-4 sm:p-6 shadow-sm mb-6 flex flex-col h-auto">
@@ -4042,6 +4394,136 @@ function App() {
           </div>
         )}
 
+        {/* USERS TAB (ADMIN) */}
+        {activeTab === 'users' && currentUser?.role === 'admin' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
+            <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h2 className="text-3xl font-bold text-slate-800 tracking-wide">
+                จัดการผู้ใช้ <span className="text-amber-500/40">/ USERS</span>
+              </h2>
+              <div className="flex w-full sm:w-auto gap-3">
+                <div className="relative flex-1 sm:w-64">
+                  <input type="text" placeholder="ค้นหา ชื่อ, ID, Username..." value={userSearchQuery} onChange={(e) => setUserSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-sm transition-all" />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                </div>
+                <button onClick={() => openModal('user_form')} className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 shadow-[0_8px_20px_rgba(245,158,11,0.25)] font-medium whitespace-nowrap">
+                  <Plus className="w-5 h-5" /> <span className="hidden sm:inline">เพิ่มผู้ใช้</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-6">
+              {/* Mobile View */}
+              <div className="md:hidden flex flex-col gap-4">
+                {filteredUsers.map((user, idx) => (
+                  <div key={user.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 ease-out relative overflow-hidden" style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both'}}>
+                    <div className="flex justify-between items-start border-b border-slate-50 pb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full border-2 border-slate-100 shadow-sm overflow-hidden bg-slate-50 flex-shrink-0">
+                          <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=random`} alt={user.name} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-base leading-tight">{user.name}</p>
+                          <p className="text-xs text-slate-500 font-mono mt-0.5">@{user.username}</p>
+                        </div>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                        user.role === 'admin' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                        user.role === 'staff' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                        'bg-emerald-50 text-emerald-600 border-emerald-200'
+                      }`}>
+                        {user.role.toUpperCase()}
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1.5 text-xs text-slate-600">
+                      <div className="flex justify-between"><span className="text-slate-400">User ID:</span> <span className="font-mono font-medium">{user.id}</span></div>
+                      {user.phone && <div className="flex justify-between"><span className="text-slate-400">เบอร์โทร:</span> <span>{user.phone}</span></div>}
+                      {user.email && <div className="flex justify-between"><span className="text-slate-400">อีเมล:</span> <span>{user.email}</span></div>}
+                      {user.facebook && <div className="flex justify-between"><span className="text-slate-400">Facebook:</span> <span className="truncate ml-4">{user.facebook}</span></div>}
+                    </div>
+
+                    <div className={`grid gap-2 pt-3 mt-2 border-t border-slate-100/60 grid-cols-2`}>
+                      <button onClick={() => openModal('user_form', user)} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors w-full shadow-sm"><Edit className="w-3.5 h-3.5"/> แก้ไข</button>
+                      <button onClick={() => openModal('delete_user_confirm', user)} disabled={user.id === currentUser?.id} className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:hover:bg-rose-50 rounded-xl transition-colors w-full shadow-sm"><Trash2 className="w-3.5 h-3.5"/> ลบ</button>
+                    </div>
+                  </div>
+                ))}
+                {filteredUsers.length === 0 && (
+                   <div className="text-center py-12 text-slate-400 bg-white rounded-3xl border border-slate-200 border-dashed">
+                     <Users className="w-10 h-10 mx-auto text-slate-300 mb-3" />
+                     <p className="font-medium text-sm">ไม่พบข้อมูลผู้ใช้</p>
+                   </div>
+                )}
+              </div>
+
+              {/* Desktop View */}
+              <div className="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm relative">
+                <TableScrollWrapper className="overflow-x-auto w-full">
+                  <table className="w-full min-w-[800px] text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[12px] uppercase tracking-wider font-bold">
+                        <th className="px-6 py-5 pl-8 whitespace-nowrap w-24">โปรไฟล์</th>
+                        <th className="px-6 py-5 min-w-[200px]">ข้อมูลผู้ใช้</th>
+                        <th className="px-6 py-5 min-w-[200px]">ติดต่อ</th>
+                        <th className="px-6 py-5 min-w-[120px]">สิทธิ์การใช้งาน</th>
+                        <th className="px-6 py-5 pr-8 text-center whitespace-nowrap w-32">จัดการ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {filteredUsers.map((user, idx) => (
+                        <tr key={user.id} className="hover:bg-slate-50/70 transition-colors group animate-in fade-in slide-in-from-bottom-4 ease-out" style={{ animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both' }}>
+                          <td className="px-6 py-4 pl-8 align-middle">
+                            <div className="w-12 h-12 rounded-full border-2 border-white shadow-sm overflow-hidden bg-slate-100">
+                              <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=random`} alt={user.name} className="w-full h-full object-cover" />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 align-middle">
+                            <p className="font-bold text-slate-800 text-base">{user.name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-slate-500 font-mono">@{user.username}</span>
+                              <span className="text-[10px] text-slate-400 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-bold tracking-wide">ID: {user.id}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 align-middle text-slate-500 text-xs space-y-1.5">
+                            {user.phone && <p className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 text-slate-400"/> {user.phone}</p>}
+                            {user.email && <p className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-slate-400"/> {user.email}</p>}
+                            {user.facebook && <p className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-slate-400"/> <span className="truncate max-w-[150px] inline-block align-bottom">{user.facebook}</span></p>}
+                            {!user.phone && !user.email && !user.facebook && <span className="italic text-slate-400">- ไม่ระบุ -</span>}
+                          </td>
+                          <td className="px-6 py-4 align-middle">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                              user.role === 'admin' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                              user.role === 'staff' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                              'bg-emerald-50 text-emerald-600 border-emerald-200'
+                            }`}>
+                              {user.role.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 pr-8 align-middle text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button onClick={() => openModal('user_form', user)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 bg-slate-50 border border-slate-100 rounded-lg transition-colors shadow-sm" title="แก้ไขข้อมูล"><Edit className="w-4 h-4"/></button>
+                              <button onClick={() => openModal('delete_user_confirm', user)} disabled={user.id === currentUser?.id} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-50 disabled:hover:text-slate-400 disabled:hover:bg-slate-50 bg-slate-50 border border-slate-100 rounded-lg transition-colors shadow-sm" title={user.id === currentUser?.id ? "ไม่สามารถลบตัวเองได้" : "ลบผู้ใช้"}><Trash2 className="w-4 h-4"/></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredUsers.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="text-center py-16 text-slate-400">
+                            <Users className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                            <p className="font-medium">ไม่พบข้อมูลผู้ใช้</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </TableScrollWrapper>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* SETTINGS TAB */}
         {activeTab === 'settings' && currentUser?.role === 'admin' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
@@ -4332,6 +4814,87 @@ function App() {
           </div>
         )}
         
+        {/* USER PROFILE TAB */}
+        {activeTab === 'profile' && currentUser && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
+            <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex justify-between items-center">
+              <h2 className="text-3xl font-bold text-slate-800 tracking-wide flex items-center gap-3">
+                โปรไฟล์ของฉัน <span className="text-fuchsia-500/40 text-2xl hidden sm:inline">/ PROFILE</span>
+              </h2>
+              <button onClick={handleLogout} className="md:hidden flex items-center gap-2 bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-sm font-bold border border-rose-100">
+                <LogOut className="w-4 h-4" /> ออกจากระบบ
+              </button>
+            </div>
+            
+            <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-6 pb-20 max-w-5xl mx-auto space-y-6">
+              
+              {/* Profile Card & Edit Form */}
+              <div className="bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-sm border border-white flex flex-col lg:flex-row gap-8">
+                <div className="flex flex-col items-center lg:w-1/3">
+                  <label 
+                    className={`relative cursor-pointer group mb-4 rounded-full transition-all duration-300 ${isProfileImgDragging ? 'scale-110 ring-4 ring-fuchsia-400 ring-offset-4 ring-offset-white' : ''}`}
+                    onDragOver={(e) => { e.preventDefault(); setIsProfileImgDragging(true); }}
+                    onDragLeave={() => setIsProfileImgDragging(false)}
+                    onDrop={handleProfileImageDrop}
+                  >
+                    <input type="file" accept="image/png, image/jpeg, image/webp" className="hidden" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleProfileImageFile(file);
+                    }} />
+                    <img src={profileAvatarUrl || currentUser.avatar || `https://ui-avatars.com/api/?name=${currentUser.name}&background=random`} alt="Profile" className="w-32 h-32 rounded-full border-4 border-white shadow-md object-cover group-hover:opacity-80 transition-opacity"/>
+                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity flex-col gap-1">
+                      <PenTool className="w-6 h-6 text-white"/>
+                      <span className="text-[10px] text-white font-bold tracking-wider">ลากมาวาง</span>
+                    </div>
+                  </label>
+                  <h3 className="text-2xl font-black text-slate-800 mb-1">{currentUser.name}</h3>
+                  <p className="text-sm text-slate-500 font-mono mb-4">@{currentUser.username}</p>
+                  <span className="px-4 py-1.5 bg-fuchsia-50 text-fuchsia-600 rounded-xl text-xs font-bold border border-fuchsia-100 mb-6 text-center">
+                    {currentUser.role === 'admin' ? 'ผู้ดูแลระบบ (Admin)' : currentUser.role === 'staff' ? 'เจ้าหน้าที่ (Staff)' : 'สมาชิกระดับทั่วไป (User)'}
+                  </span>
+                </div>
+                
+                <form onSubmit={handleUpdateProfile} className="flex-1 space-y-5">
+                  <div className="bg-slate-50/80 p-6 rounded-2xl border border-slate-100 space-y-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200/60 pb-3"><User className="w-4 h-4 text-fuchsia-500"/> ข้อมูลลูกค้า & ชำระเงิน</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">ชื่อ-นามสกุล</label><input name="name" defaultValue={currentUser.name} required className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">อีเมล</label><input name="email" type="email" defaultValue={currentUser.email || ''} required className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Facebook</label><input name="facebook" defaultValue={currentUser.facebook || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">เบอร์โทรศัพท์ติดต่อ</label><input name="phone" defaultValue={currentUser.phone || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200/60">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5">ธนาคาร</label>
+                        <select name="bankName" defaultValue={currentUser.bankName || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700">
+                          <option value="">ไม่ระบุ</option>
+                          {bankOptions.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                        </select>
+                      </div>
+                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">เลขบัญชี</label><input name="bankAccount" defaultValue={currentUser.bankAccount || ''} placeholder="xxx-x-xxxxx-x" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50/80 p-6 rounded-2xl border border-slate-100 space-y-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200/60 pb-3"><Truck className="w-4 h-4 text-fuchsia-500"/> ข้อมูลจัดส่ง</h4>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5">ที่อยู่สำหรับจัดส่ง (เริ่มต้น)</label>
+                      <textarea name="address" rows={3} defaultValue={currentUser.address || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all resize-none font-bold text-slate-700"></textarea>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2 flex justify-end">
+                    <button type="submit" disabled={isProcessing} className="w-full sm:w-auto px-8 py-3 bg-fuchsia-600 hover:bg-fuchsia-700 disabled:bg-fuchsia-400 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(192,38,211,0.25)] transition-all flex items-center justify-center gap-2">
+                      {isProcessing ? <><Loader2 className="w-4 h-4 animate-spin"/> กำลังบันทึก...</> : <><Save className="w-4 h-4" /> บันทึกการเปลี่ยนแปลง</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+            </div>
+          </div>
+        )}
+
           </div>
         </div>
       </main>
@@ -4743,6 +5306,10 @@ function App() {
                          <div className="flex flex-wrap gap-2 mt-4">
                            <span className={`text-[10px] font-bold px-2.5 py-1.5 rounded border flex items-center gap-1 ${Number(modal.data?.carryingFee) > 0 ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><ShoppingBag className="w-3.5 h-3.5"/> ค่าหิ้ว ฿{Number(modal.data?.carryingFee || 0).toLocaleString()}</span>
                            <span className={`text-[10px] font-bold px-2.5 py-1.5 rounded border flex items-center gap-1 ${Number(modal.data?.shippingFee) > 0 ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-slate-500 bg-slate-50 border-slate-200'}`}><Truck className="w-3.5 h-3.5"/> ค่าส่ง ฿{Number(modal.data?.shippingFee || 0).toLocaleString()}</span>
+                           
+                           {modal.data?.category && <span className="text-[10px] font-bold px-2.5 py-1.5 rounded border text-indigo-700 bg-indigo-50 border-indigo-200 flex items-center gap-1"><Tags className="w-3.5 h-3.5"/> {modal.data.category}</span>}
+                           {modal.data?.artist && <span className="text-[10px] font-bold px-2.5 py-1.5 rounded border text-pink-700 bg-pink-50 border-pink-200 flex items-center gap-1"><Star className="w-3.5 h-3.5"/> {modal.data.artist}</span>}
+                           {modal.data?.event && <span className="text-[10px] font-bold px-2.5 py-1.5 rounded border text-emerald-700 bg-emerald-50 border-emerald-200 flex items-center gap-1"><Ticket className="w-3.5 h-3.5"/> {modal.data.event}</span>}
                          </div>
                        </div>
 
@@ -4926,6 +5493,33 @@ function App() {
                       <div><label className="block text-xs font-bold text-slate-500 mb-1">โควต้ารวม (Stock)</label><input name="stock" type="number" min="0" defaultValue={modal.data?.stock} required className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-bold focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none shadow-sm transition-all" /></div>
                       <div><label className="block text-xs font-bold text-slate-500 mb-1">ค่าหิ้ว (Fee)</label><input name="carryingFee" type="number" min="0" defaultValue={modal.data?.carryingFee || 0} required className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-bold focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none shadow-sm transition-all" /></div>
                       <div><label className="block text-xs font-bold text-slate-500 mb-1">ค่าจัดส่ง (Ship)</label><input name="shippingFee" type="number" min="0" defaultValue={modal.data?.shippingFee || 0} required className="w-full p-3.5 bg-white border border-slate-200 rounded-xl font-bold focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none shadow-sm transition-all" /></div>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                      <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5"><Tags className="w-4 h-4 text-blue-500"/> จัดกลุ่มสินค้า (สำหรับวิเคราะห์)</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 mb-1">หมวดหมู่สินค้า (Category)</label>
+                          <select name="category" defaultValue={modal.data?.category || ''} className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 transition-colors cursor-pointer font-medium text-slate-700">
+                            <option value="">-- ไม่ระบุ --</option>
+                            {productCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 mb-1">ศิลปิน (Artist)</label>
+                          <select name="artist" defaultValue={modal.data?.artist || ''} className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 transition-colors cursor-pointer font-medium text-slate-700">
+                            <option value="">-- ไม่ระบุ --</option>
+                            {artistCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 mb-1">งาน/อีเวนต์ (Event)</label>
+                          <select name="event" defaultValue={modal.data?.event || ''} className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 transition-colors cursor-pointer font-medium text-slate-700">
+                            <option value="">-- ไม่ระบุ --</option>
+                            {eventCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </select>
+                        </div>
+                      </div>
                     </div>
                     
                     <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -5120,6 +5714,80 @@ function App() {
                 <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
                   <button type="button" onClick={() => openModal('cart')} className="px-5 py-2.5 bg-white border rounded-xl font-bold flex items-center justify-center">ย้อนกลับ</button>
                   <button type="submit" className="px-5 py-2.5 bg-sky-500 text-white rounded-xl font-bold flex items-center justify-center whitespace-nowrap">ยืนยันสั่งซื้อ</button>
+                </div>
+              </form>
+            )}
+
+            {/* PROFILE MODAL */}
+            {modal.type === 'profile' && currentUser && (
+              <form className="flex flex-col flex-1 min-h-0 bg-slate-50" onSubmit={handleUpdateProfile}>
+                <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-200 bg-white flex-shrink-0 z-10 shadow-sm">
+                  <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><User className="w-6 h-6 text-fuchsia-500" /> จัดการโปรไฟล์ส่วนตัว</h3>
+                  <button type="button" onClick={closeModal} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5"/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-slate-50">
+                  {/* Profile Picture Section */}
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                    <label 
+                      className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 shadow-md flex items-center justify-center cursor-pointer overflow-hidden relative group flex-shrink-0 transition-all duration-300 ${isProfileImgDragging ? 'scale-110 ring-4 ring-fuchsia-400 ring-offset-4 ring-offset-white border-fuchsia-200' : 'border-slate-100'}`}
+                      onDragOver={(e) => { e.preventDefault(); setIsProfileImgDragging(true); }}
+                      onDragLeave={() => setIsProfileImgDragging(false)}
+                      onDrop={handleProfileImageDrop}
+                    >
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { if(e.target.files?.[0]) handleProfileImageFile(e.target.files[0]); }} disabled={isProcessing || uploadProgress > 0} />
+                      <img src={profileAvatarUrl || currentUser.avatar || `https://ui-avatars.com/api/?name=${currentUser.name}&background=random`} alt="Profile" className="w-full h-full object-cover group-hover:opacity-80 transition-opacity" />
+                      <div className="absolute inset-0 bg-black/40 flex flex-col gap-1 items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <PenTool className="w-6 h-6 text-white"/>
+                         <span className="text-white text-[10px] font-bold text-center">เปลี่ยนรูป<br/>(คลิก/ลากวาง)</span>
+                      </div>
+                    </label>
+                    <div className="flex-1 text-center sm:text-left flex flex-col justify-center mt-2 sm:mt-4">
+                       <h4 className="text-lg sm:text-xl font-black text-slate-800 leading-none mb-1">{currentUser.name}</h4>
+                       <p className="text-sm font-mono text-slate-500">@{currentUser.username}</p>
+                       <span className={`inline-block mt-3 px-3 py-1 rounded-full text-xs font-bold border w-fit mx-auto sm:mx-0 ${
+                          currentUser.role === 'admin' ? 'bg-rose-50 text-rose-600 border-rose-200' :
+                          currentUser.role === 'staff' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                          'bg-emerald-50 text-emerald-600 border-emerald-200'
+                        }`}>
+                          {currentUser.role.toUpperCase()}
+                       </span>
+                    </div>
+                  </div>
+
+                  {/* Personal Info */}
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3"><User className="w-4 h-4 text-fuchsia-500"/> ข้อมูลส่วนตัว</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div><label className="text-xs font-bold text-slate-500 mb-1 block">ชื่อ-นามสกุล</label><input name="name" defaultValue={currentUser.name} required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-fuchsia-400 focus:bg-white transition-colors font-bold text-slate-700" /></div>
+                      <div><label className="text-xs font-bold text-slate-500 mb-1 block">อีเมล</label><input name="email" type="email" defaultValue={currentUser.email || ''} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-fuchsia-400 focus:bg-white transition-colors font-bold text-slate-700" /></div>
+                      <div><label className="text-xs font-bold text-slate-500 mb-1 block">เบอร์โทรศัพท์</label><input name="phone" defaultValue={currentUser.phone || ''} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-fuchsia-400 focus:bg-white transition-colors font-bold text-slate-700" /></div>
+                      <div><label className="text-xs font-bold text-slate-500 mb-1 block">Facebook</label><input name="facebook" defaultValue={currentUser.facebook || ''} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-fuchsia-400 focus:bg-white transition-colors font-bold text-slate-700" /></div>
+                    </div>
+                    <div><label className="text-xs font-bold text-slate-500 mb-1 block">ที่อยู่จัดส่งเริ่มต้น</label><textarea name="address" rows={3} defaultValue={currentUser.address || ''} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-fuchsia-400 focus:bg-white transition-colors resize-none font-bold text-slate-700"></textarea></div>
+                  </div>
+
+                  {/* Bank Info */}
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3"><Landmark className="w-4 h-4 text-fuchsia-500"/> ข้อมูลบัญชีธนาคาร (สำหรับรับเงินคืน)</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-500 mb-1 block">ธนาคาร</label>
+                        <select name="bankName" defaultValue={currentUser.bankName || ''} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-fuchsia-400 focus:bg-white transition-colors cursor-pointer font-bold text-slate-700">
+                          <option value="">-- ไม่ระบุ --</option>
+                          {bankOptions.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                        </select>
+                      </div>
+                      <div><label className="text-xs font-bold text-slate-500 mb-1 block">เลขบัญชี</label><input name="bankAccount" defaultValue={currentUser.bankAccount || ''} placeholder="xxx-x-xxxxx-x" className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-fuchsia-400 focus:bg-white transition-colors font-mono font-bold text-slate-700" /></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5 border-t border-slate-200 bg-white flex justify-end gap-3 flex-shrink-0 z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.02)]">
+                  <button type="button" onClick={closeModal} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold shadow-sm text-slate-600 transition-colors">ยกเลิก</button>
+                  <button type="submit" disabled={isProcessing} className="px-6 py-2.5 bg-fuchsia-500 hover:bg-fuchsia-600 disabled:bg-fuchsia-400 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(217,70,239,0.3)] transition-all flex items-center gap-2">
+                    {isProcessing ? <><Loader2 className="w-4 h-4 animate-spin"/> กำลังบันทึก...</> : <><Save className="w-4 h-4"/> บันทึกข้อมูล</>}
+                  </button>
                 </div>
               </form>
             )}
