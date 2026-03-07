@@ -8,7 +8,7 @@ import {
   Download, PieChart, TrendingUp, AlertTriangle, CheckCircle, Folder, Activity, Award, Filter,
   Lock, ArrowRight, LogOut, Users, Mail, Loader2, Share2, MessageCircle, Megaphone,
   Bold, AlignCenter, AlignRight, List, Italic, Underline, ListOrdered,
-  Strikethrough, Indent, Outdent, Eraser
+  Strikethrough, Indent, Outdent, Eraser, Star, Ticket
 } from 'lucide-react';
 
 // --- TYPES & INTERFACES ---
@@ -38,6 +38,11 @@ export interface OrderStatus {
 }
 
 export interface Bank {
+  id: string;
+  name: string;
+}
+
+export interface Category {
   id: string;
   name: string;
 }
@@ -685,7 +690,7 @@ function App() {
 
   // Drag & Drop Image Upload States
   const [isProductImgDragging, setIsProductImgDragging] = useState<boolean>(false);
-  const [isProfileImgDragging, setIsProfileImgDragging] = useState<boolean>(false);
+  // const [isProfileImgDragging, setIsProfileImgDragging] = useState<boolean>(false); // REMOVED: ไม่ได้ใช้งานใน UI ปัจจุบัน
   
   // Image Zoom State
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -698,8 +703,13 @@ function App() {
   // Search & Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [orderSearchQuery, setOrderSearchQuery] = useState<string>('');
-  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
+  // const [userSearchQuery, setUserSearchQuery] = useState<string>(''); // REMOVED: ไม่ได้ใช้งานใน UI ปัจจุบัน
   const [usersList, setUsersList] = useState<AppUser[]>([]);
+
+  // Category States
+  const [productCategories, setProductCategories] = useState<Category[]>([]);
+  const [artistCategories, setArtistCategories] = useState<Category[]>([]);
+  const [eventCategories, setEventCategories] = useState<Category[]>([]);
 
   // Dashboard Specific States
   const [dashSearchQuery, setDashSearchQuery] = useState<string>('');
@@ -856,7 +866,7 @@ function App() {
               } catch(e) {}
             }
 
-            sanitizedProducts.sort((a, b) => {
+            sanitizedProducts.sort((a: any, b: any) => {
               // 1. ล็อคให้สินค้าที่เป็น NEW อยู่บนสุดเสมอ
               if (a.isNew && !b.isNew) return -1;
               if (!a.isNew && b.isNew) return 1;
@@ -1310,6 +1320,7 @@ function App() {
     setIsUserMenuOpen(false);
   };
 
+  // @ts-ignore - ปิดแจ้งเตือน TS6133 ชั่วคราว (เตรียมไว้ใช้สำหรับการอัปเดตโปรไฟล์ในอนาคต)
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!currentUser || isProcessing) return;
@@ -1393,11 +1404,12 @@ function App() {
     ? orders.filter(o => o.id.toLowerCase().includes(lowerOrderQuery) || o.customer.toLowerCase().includes(lowerOrderQuery) || o.phone.includes(lowerOrderQuery))
     : orders;
 
-  const filteredUsers = usersList.filter(u => 
-    u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
-    u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
-    u.id.toLowerCase().includes(userSearchQuery.toLowerCase())
-  );
+  // REMOVED: ตัวแปรถูกปิดไว้เพื่อแก้บัคไม่ได้ถูกใช้งาน (TS6133)
+  // const filteredUsers = usersList.filter(u => 
+  //   u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+  //   u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) || 
+  //   u.id.toLowerCase().includes(userSearchQuery.toLowerCase())
+  // );
 
   const cartStats = cart.reduce((acc, item) => {
     acc.cartSubtotal += item.product.price * item.qty;
@@ -2360,15 +2372,37 @@ function App() {
     setPreviewUrls(prev => prev.filter((_, i) => i !== indexToRemove));
   };
 
+  // @ts-ignore - ปิดแจ้งเตือนไม่ได้ใช้งาน (TS6133) 
   const handleProfileImageDrop = (e: React.DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
-    setIsProfileImgDragging(false);
+    // setIsProfileImgDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith('image/')) {
       handleProfileImageFile(file);
     } else if (file) {
       showToast('กรุณาอัปโหลดเฉพาะไฟล์รูปภาพเท่านั้น', 'error');
     }
+  };
+
+  // --- CATEGORY HANDLERS ---
+  const handleAddCategory = (type: 'product' | 'artist' | 'event') => {
+    const newId = `cat_${Math.floor(Math.random() * 10000)}`;
+    const newCat = { id: newId, name: 'หมวดหมู่ใหม่' };
+    if (type === 'product') setProductCategories(prev => [...prev, newCat]);
+    if (type === 'artist') setArtistCategories(prev => [...prev, newCat]);
+    if (type === 'event') setEventCategories(prev => [...prev, newCat]);
+  };
+
+  const handleUpdateCategory = (type: 'product' | 'artist' | 'event', id: string, newName: string) => {
+    if (type === 'product') setProductCategories(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
+    if (type === 'artist') setArtistCategories(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
+    if (type === 'event') setEventCategories(prev => prev.map(c => c.id === id ? { ...c, name: newName } : c));
+  };
+
+  const handleRemoveCategory = (type: 'product' | 'artist' | 'event', id: string) => {
+    if (type === 'product') setProductCategories(prev => prev.filter(c => c.id !== id));
+    if (type === 'artist') setArtistCategories(prev => prev.filter(c => c.id !== id));
+    if (type === 'event') setEventCategories(prev => prev.filter(c => c.id !== id));
   };
 
   const handleProductSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -4189,7 +4223,7 @@ function App() {
                     <button onClick={() => handleAddCategory('product')} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/> เพิ่ม</button>
                   </div>
                   <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-2 mt-4">
-                    {productCategories.map((cat) => (
+                    {productCategories.map((cat: Category) => (
                       <div key={cat.id} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
                         <input type="text" value={cat.name} onChange={(e) => handleUpdateCategory('product', cat.id, e.target.value)} className="flex-1 w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-indigo-400" />
                         <button onClick={() => handleRemoveCategory('product', cat.id)} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
@@ -4206,7 +4240,7 @@ function App() {
                     <button onClick={() => handleAddCategory('artist')} className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/> เพิ่ม</button>
                   </div>
                   <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-2 mt-4">
-                    {artistCategories.map((cat) => (
+                    {artistCategories.map((cat: Category) => (
                       <div key={cat.id} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
                         <input type="text" value={cat.name} onChange={(e) => handleUpdateCategory('artist', cat.id, e.target.value)} className="flex-1 w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-pink-400" />
                         <button onClick={() => handleRemoveCategory('artist', cat.id)} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
@@ -4223,7 +4257,7 @@ function App() {
                     <button onClick={() => handleAddCategory('event')} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/> เพิ่ม</button>
                   </div>
                   <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-2 mt-4">
-                    {eventCategories.map((cat) => (
+                    {eventCategories.map((cat: Category) => (
                       <div key={cat.id} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
                         <input type="text" value={cat.name} onChange={(e) => handleUpdateCategory('event', cat.id, e.target.value)} className="flex-1 w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-emerald-400" />
                         <button onClick={() => handleRemoveCategory('event', cat.id)} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
