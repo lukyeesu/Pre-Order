@@ -860,25 +860,41 @@ function App() {
             // --- เรียงลำดับสินค้า ---
             const fetchedSettings = json.data.settings?.[0];
             let orderArr: string[] = [];
+            
+            // 1. พยายามดึงจากฐานข้อมูล Google Sheets ก่อน
             if (fetchedSettings && fetchedSettings.productOrder) {
               try {
-                orderArr = JSON.parse(fetchedSettings.productOrder);
+                const parsed = typeof fetchedSettings.productOrder === 'string' ? JSON.parse(fetchedSettings.productOrder) : fetchedSettings.productOrder;
+                if (Array.isArray(parsed)) orderArr = parsed;
               } catch(e) {}
             }
 
+            // 2. ถ้าระบบหลังบ้านไม่มีข้อมูล (เช่น ลืมสร้างคอลัมน์ productOrder) ให้ดึงข้อมูลสำรองจาก LocalStorage ของเครื่องนั้นๆ
+            if (!orderArr || orderArr.length === 0) {
+                const localOrder = localStorage.getItem('localProductOrder');
+                if (localOrder) {
+                    try {
+                        const parsed = JSON.parse(localOrder);
+                        if (Array.isArray(parsed)) orderArr = parsed;
+                    } catch(e) {}
+                }
+            }
+
             sanitizedProducts.sort((a: any, b: any) => {
-              // 1. ล็อคให้สินค้าที่เป็น NEW อยู่บนสุดเสมอ
+              const idxA = orderArr.indexOf(a.id);
+              const idxB = orderArr.indexOf(b.id);
+              
+              // ลอจิก 1: ถ้าสินค้าทั้งคู่มีในประวัติการเรียง ให้เรียงตาม Index ที่เคยลากไว้
+              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+              
+              // ลอจิก 2: ถ้าตัวใดตัวหนึ่งมีในประวัติ ให้ตัวนั้นโดนดันขึ้นไปก่อนเสมอ
+              if (idxA !== -1) return -1;
+              if (idxB !== -1) return 1;
+
+              // ลอจิก 3: ถ้าไม่มีในประวัติทั้งคู่ (เป็นสินค้าที่เพิ่งเพิ่มเข้ามาใหม่) ค่อยเช็คป้าย NEW
               if (a.isNew && !b.isNew) return -1;
               if (!a.isNew && b.isNew) return 1;
 
-              // 2. ถ้าสถานะ NEW เท่ากัน (หรือไม่ได้เป็น NEW ทั้งคู่) ให้เรียงตามที่จับลาก (productOrder)
-              if (Array.isArray(orderArr) && orderArr.length > 0) {
-                const idxA = orderArr.indexOf(a.id);
-                const idxB = orderArr.indexOf(b.id);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-              }
               return 0;
             });
 
@@ -1632,19 +1648,22 @@ function App() {
       setProducts(updatedProducts);
       showToast(existingIdx >= 0 ? "อัปเดตข้อมูลสินค้าแล้ว" : "เพิ่มสินค้าใหม่สำเร็จ");
       
-      // บันทึกตำแหน่งการเรียงใหม่ไปยังตั้งค่าระบบหลังบ้านอัตโนมัติ
-      if (product.isNew && (!wasNew || existingIdx === -1)) {
-         const newOrderList = updatedProducts.map(p => p.id);
-         const updatedSettings = { ...sysSettings, productOrder: JSON.stringify(newOrderList) };
-         setSysSettings(updatedSettings);
-         const payload = {
-           ...updatedSettings,
-           id: updatedSettings.id || 'system',
-           orderStatuses: typeof orderStatuses === 'string' ? orderStatuses : JSON.stringify(orderStatuses),
-           bankOptions: typeof bankOptions === 'string' ? bankOptions : JSON.stringify(bankOptions)
-         };
-         callServerAPI('saveSettings', payload);
-      }
+      // บันทึกตำแหน่งการเรียงใหม่ไปยังตั้งค่าระบบหลังบ้านอัตโนมัติเสมอ 
+      const newOrderList = updatedProducts.map(p => p.id);
+      const updatedSettings = { ...sysSettings, productOrder: JSON.stringify(newOrderList) };
+      setSysSettings(updatedSettings);
+      
+      // Backup การเรียงลง LocalStorage เผื่อฐานข้อมูลไม่มีคอลัมน์
+      localStorage.setItem('localProductOrder', JSON.stringify(newOrderList));
+      
+      const payload = {
+        ...updatedSettings,
+        id: updatedSettings.id || 'system',
+        orderStatuses: typeof orderStatuses === 'string' ? orderStatuses : JSON.stringify(orderStatuses),
+        bankOptions: typeof bankOptions === 'string' ? bankOptions : JSON.stringify(bankOptions)
+      };
+      // ให้ยิง API ไปเซฟลำดับแบบ Background (ไม่ตัองรอโหลด)
+      callServerAPI('saveSettings', payload).catch(e => console.error("Background order save failed", e));
       
       closeModal();
     } catch (err) {
@@ -2226,6 +2245,9 @@ function App() {
     const newOrderList = newProducts.map(p => p.id);
     const updatedSettings = { ...sysSettings, productOrder: JSON.stringify(newOrderList) };
     setSysSettings(updatedSettings);
+    
+    // Backup การเรียงลง LocalStorage เผื่อฐานข้อมูลไม่มีคอลัมน์
+    localStorage.setItem('localProductOrder', JSON.stringify(newOrderList));
     
     const payload = {
       ...updatedSettings,
