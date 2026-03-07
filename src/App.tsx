@@ -4179,299 +4179,59 @@ function App() {
                   </TableScrollWrapper>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
 
-        {/* USERS TAB (ADMIN ONLY) */}
-        {activeTab === 'users' && currentUser?.role === 'admin' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
-            <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-3xl font-bold text-slate-800 tracking-wide">
-                จัดการผู้ใช้ <span className="text-amber-500/40">/ USERS</span>
-              </h2>
-              <div className="flex w-full sm:w-auto gap-3">
-                <div className="relative flex-1 sm:w-64">
-                  <input type="text" placeholder="ค้นหาชื่อ, Username, ID..." value={userSearchQuery} onChange={(e) => setUserSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/20 shadow-sm transition-all" />
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              {/* CATEGORY SETTINGS */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto mt-6">
+                {/* 1. Product Categories */}
+                <div className="bg-white/70 backdrop-blur-xl p-5 sm:p-6 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white flex flex-col h-[400px]">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-shrink-0">
+                    <div className="flex items-center gap-2.5"><div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><Tags className="w-4 h-4"/></div><h3 className="text-base font-black text-slate-800">หมวดหมู่สินค้า</h3></div>
+                    <button onClick={() => handleAddCategory('product')} className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/> เพิ่ม</button>
+                  </div>
+                  <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-2 mt-4">
+                    {productCategories.map((cat) => (
+                      <div key={cat.id} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <input type="text" value={cat.name} onChange={(e) => handleUpdateCategory('product', cat.id, e.target.value)} className="flex-1 w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-indigo-400" />
+                        <button onClick={() => handleRemoveCategory('product', cat.id)} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    ))}
+                    {productCategories.length === 0 && <div className="text-center py-6 text-slate-400 text-xs font-medium">ยังไม่มีหมวดหมู่สินค้า</div>}
+                  </TableScrollWrapper>
                 </div>
-                <button onClick={() => openModal('user_form')} className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 shadow-[0_8px_20px_rgba(245,158,11,0.25)] font-medium whitespace-nowrap">
-                  <Plus className="w-5 h-5" /> <span className="hidden sm:inline">เพิ่มผู้ใช้</span>
-                </button>
-              </div>
-            </div>
 
-            <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-6">
-
-              {/* Mobile View */}
-              <div className="md:hidden flex flex-col gap-4">
-                {filteredUsers.map((user, idx) => (
-                  <div key={user.id} onClick={() => openModal('user_form', user)} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4 ease-out cursor-pointer" style={{animationDelay: `${Math.min(idx * 50, 500)}ms`, animationFillMode: 'both', animationDuration: '600ms'}}>
-                    <div className="flex justify-between items-start border-b border-slate-50 pb-3">
-                      <div className="flex items-center gap-3">
-                        <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=fdf4ff&color=c026d3&bold=true`} alt={user.name} className="w-12 h-12 rounded-full border-2 border-white shadow-sm object-cover flex-shrink-0" />
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm leading-tight">{user.name}</p>
-                          <p className="text-[11px] text-slate-500 font-mono mt-0.5">@{user.username} <span className="text-slate-300 mx-1">•</span> <span className="font-bold">{user.id}</span></p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2 text-[11px] text-slate-600 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
-                      {user.email && <a href={`mailto:${user.email}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-2.5 hover:text-blue-600 hover:underline"><Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"/> <span className="truncate">{user.email}</span></a>}
-                      {user.phone && <a href={`tel:${formatPhone(user.phone)}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-2.5 hover:text-blue-600 hover:underline"><Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"/> <span>{formatPhone(user.phone)}</span></a>}
-                      {user.facebook && <span className="flex items-center gap-2.5"><User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0"/> <span className="truncate">{user.facebook}</span></span>}
-                      {!user.email && !user.phone && !user.facebook && <span className="text-slate-400 italic">- ไม่มีข้อมูลติดต่อ -</span>}
-                      
-                      <div className="border-t border-slate-200/60 pt-2.5 mt-1.5">
-                         <span className="font-bold text-slate-500 mb-1 flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5"/> ที่อยู่จัดส่งหลัก:</span>
-                         <p className="line-clamp-2 pl-5">{user.address || <span className="text-slate-400 italic">- ไม่ระบุ -</span>}</p>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-end pt-1">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${user.role === 'admin' ? 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200' : user.role === 'staff' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                        {user.role}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <button onClick={(e) => { e.stopPropagation(); openModal('user_form', user); }} className="p-2.5 text-slate-400 hover:text-amber-600 bg-slate-50 border border-slate-100 hover:bg-amber-50 rounded-lg transition-colors"><Edit className="w-3.5 h-3.5" /></button>
-                        <button onClick={(e) => { e.stopPropagation(); openModal('delete_user_confirm', user); }} disabled={user.id === currentUser?.id} className="p-2.5 text-slate-400 hover:text-rose-600 bg-slate-50 border border-slate-100 hover:bg-rose-50 disabled:opacity-30 disabled:bg-transparent rounded-lg transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </div>
-                    </div>
+                {/* 2. Artist Categories */}
+                <div className="bg-white/70 backdrop-blur-xl p-5 sm:p-6 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white flex flex-col h-[400px]">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-shrink-0">
+                    <div className="flex items-center gap-2.5"><div className="p-2 bg-pink-50 text-pink-600 rounded-xl"><Star className="w-4 h-4"/></div><h3 className="text-base font-black text-slate-800">รายชื่อศิลปิน</h3></div>
+                    <button onClick={() => handleAddCategory('artist')} className="bg-pink-50 hover:bg-pink-100 text-pink-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/> เพิ่ม</button>
                   </div>
-                ))}
-                {filteredUsers.length === 0 && (
-                   <div className="text-center py-12 text-slate-400 bg-white rounded-3xl border border-slate-200 border-dashed">
-                     <Users className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-                     <p className="font-medium text-sm">ไม่พบผู้ใช้ที่ค้นหา</p>
-                   </div>
-                )}
-              </div>
-
-              {/* Desktop View */}
-              <div className="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm relative">
-                <TableScrollWrapper className="overflow-x-auto w-full">
-                  <table className="w-full min-w-[900px] text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-[12px] uppercase tracking-wider font-bold">
-                        <th className="px-6 py-5 pl-8 whitespace-nowrap w-24">User ID</th>
-                        <th className="px-6 py-5 min-w-[200px]">ผู้ใช้งาน (User)</th>
-                        <th className="px-6 py-5 min-w-[200px]">ข้อมูลติดต่อ</th>
-                        <th className="px-6 py-5 min-w-[150px]">ที่อยู่จัดส่ง (หลัก)</th>
-                        <th className="px-6 py-5 text-center w-32">สิทธิ์ (Role)</th>
-                        <th className="px-6 py-5 pr-8 text-center whitespace-nowrap w-32">จัดการ</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm">
-                      {filteredUsers.map((user, idx) => (
-                        <tr key={user.id} onClick={() => openModal('user_form', user)} className="hover:bg-slate-50/70 transition-colors group cursor-pointer animate-in fade-in slide-in-from-bottom-4 ease-out" style={{ animationDelay: `${Math.min(idx * 80, 800)}ms`, animationFillMode: 'both', animationDuration: '1000ms' }}>
-                          <td className="px-6 py-4 pl-8 align-top whitespace-nowrap font-mono text-slate-500 font-bold">{user.id}</td>
-                          <td className="px-6 py-4 align-top">
-                            <div className="flex items-center gap-3">
-                              <img src={user.avatar || `https://ui-avatars.com/api/?name=${user.name}&background=fdf4ff&color=c026d3&bold=true`} alt={user.name} className="w-10 h-10 rounded-full border border-slate-200 object-cover flex-shrink-0" />
-                              <div>
-                                <p className="font-bold text-slate-800">{user.name}</p>
-                                <p className="text-[12px] text-slate-500 font-mono">@{user.username}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 align-top">
-                            <div className="flex flex-col gap-1 text-[12px] text-slate-600">
-                              {user.email && <a href={`mailto:${user.email}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1.5 hover:text-blue-600 hover:underline"><Mail className="w-3.5 h-3.5 text-slate-400"/> {user.email}</a>}
-                              {user.phone && <a href={`tel:${formatPhone(user.phone)}`} onClick={e=>e.stopPropagation()} className="flex items-center gap-1.5 hover:text-blue-600 hover:underline"><Phone className="w-3.5 h-3.5 text-slate-400"/> {formatPhone(user.phone)}</a>}
-                              {user.facebook && <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-slate-400"/> {user.facebook}</span>}
-                              {!user.email && !user.phone && !user.facebook && <span className="text-slate-400 italic">- ไม่มีข้อมูล -</span>}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 align-top">
-                            <p className="text-[12px] text-slate-600 line-clamp-2 max-w-[200px]">{user.address || <span className="text-slate-400 italic">- ไม่ระบุ -</span>}</p>
-                          </td>
-                          <td className="px-6 py-4 align-top text-center">
-                            <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${user.role === 'admin' ? 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200' : user.role === 'staff' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                              {user.role}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 pr-8 align-top text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <button onClick={(e) => { e.stopPropagation(); openModal('user_form', user); }} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"><Edit className="w-4 h-4" /></button>
-                              <button onClick={(e) => { e.stopPropagation(); openModal('delete_user_confirm', user); }} disabled={user.id === currentUser?.id} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 disabled:opacity-30 disabled:hover:bg-transparent rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredUsers.length === 0 && (
-                         <tr><td colSpan={6} className="text-center py-16 text-slate-400 font-medium bg-slate-50/50">ไม่พบผู้ใช้ที่ค้นหา</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </TableScrollWrapper>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MY ORDERS TAB */}
-        {activeTab === 'my_orders' && !isAdminOrStaff && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
-            <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex justify-between items-center">
-              <h2 className="text-3xl font-bold text-slate-800 tracking-wide flex items-center gap-3">
-                คำสั่งซื้อของฉัน <span className="text-pink-500/40 text-2xl hidden sm:inline">/ MY ORDERS</span>
-              </h2>
-            </div>
-            
-            <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-6 pb-20 max-w-5xl mx-auto space-y-6">
-              <div className="bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-sm border border-white">
-                <div className="space-y-6">
-                  {orders.filter(o => o.userId === currentUser?.id).length > 0 ? orders.filter(o => o.userId === currentUser?.id).map(order => (
-                    <div key={order.id} onClick={() => openEditOrderModal(order)} className="bg-slate-50 p-5 rounded-2xl border border-slate-100 hover:border-pink-200 transition-colors flex flex-col gap-4 cursor-pointer">
-                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-200/60 pb-4">
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <span className="font-mono font-black text-blue-600 text-lg">{order.id}</span>
-                            {getStatusBadge(order.status)}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm text-slate-500 font-medium"><Calendar className="w-4 h-4 inline mr-1 text-slate-400"/>สั่งซื้อเมื่อ: {order.orderDate}</span>
-                            {order.createdBy && <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 font-bold">บันทึกโดย: {order.createdBy}</span>}
-                          </div>
-                        </div>
-                        <div className="text-left sm:text-right flex flex-col gap-1 items-start sm:items-end">
-                          <div>
-                            <p className="text-xs text-slate-500 mb-0.5 font-bold uppercase tracking-widest">ยอดรวมสุทธิ</p>
-                            <p className="text-xl font-black text-pink-600">฿{order.total.toLocaleString()}</p>
-                          </div>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); openModal('cancel_order_confirm', order); }}
-                            disabled={!['waiting_payment', 'paid'].includes(order.status)}
-                            className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-lg border transition-colors w-full sm:w-auto ${
-                              ['waiting_payment', 'paid'].includes(order.status)
-                                ? 'text-rose-500 bg-rose-50 hover:bg-rose-100 border-rose-100'
-                                : 'text-slate-400 bg-slate-100 border-slate-200 cursor-not-allowed opacity-70'
-                            }`}
-                          >
-                            ยกเลิกคำสั่งซื้อ
-                          </button>
-                        </div>
+                  <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-2 mt-4">
+                    {artistCategories.map((cat) => (
+                      <div key={cat.id} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <input type="text" value={cat.name} onChange={(e) => handleUpdateCategory('artist', cat.id, e.target.value)} className="flex-1 w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-pink-400" />
+                        <button onClick={() => handleRemoveCategory('artist', cat.id)} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
                       </div>
-                      
-                      <div className="space-y-3">
-                        {order.items.map((item, idx) => {
-                          const product = products.find(p => p.id === item.id);
-                          const itemImageUrl = product?.imageUrl;
-                          return (
-                          <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 text-sm bg-white p-4 rounded-xl border border-slate-100">
-                            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-50 rounded-lg flex items-center justify-center flex-shrink-0 border border-slate-200 overflow-hidden cursor-zoom-in" onClick={(e) => { if(itemImageUrl){ e.stopPropagation(); setZoomedImage(itemImageUrl); } }}>
-                                {itemImageUrl ? <img src={itemImageUrl} alt={item.name} className="w-full h-full object-cover hover:opacity-80 transition-opacity" /> : <ImageIcon className="w-6 h-6 text-slate-300"/>}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <span className="font-bold text-slate-700 block mb-1 truncate">{item.name}</span>
-                                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs">
-                                  <span className="text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded border border-slate-100">จำนวน: {item.qty} ชิ้น</span>
-                                  {item.variation && <span className="text-slate-500 font-bold bg-slate-50 px-2 py-1 rounded border border-slate-100">ตัวเลือก: {item.variation}</span>}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-left sm:text-right flex flex-col gap-1 items-start sm:items-end flex-shrink-0 pl-14 sm:pl-0">
-                              <span className="font-bold text-slate-800 text-base">฿{(item.price * item.qty).toLocaleString()}</span>
-                              {item.carryingFee > 0 && <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">ค่าหิ้ว +฿{(item.carryingFee * item.qty).toLocaleString()}</span>}
-                            </div>
-                          </div>
-                        )})}
-                      </div>
-                      
-                      {Number(order.shippingFee) > 0 && (
-                         <div className="text-right text-sm font-bold text-orange-600 pt-2 flex justify-end gap-2 items-center">
-                           <Truck className="w-4 h-4" /> ค่าจัดส่ง: ฿{Number(order.shippingFee).toLocaleString()}
-                         </div>
-                      )}
-                    </div>
-                  )) : (
-                    <div className="text-center py-16">
-                      <ShoppingBag className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                      <p className="text-slate-500 font-bold text-lg mb-4">ยังไม่มีประวัติการสั่งซื้อ</p>
-                      <button onClick={() => setActiveTab('store')} className="px-6 py-2 bg-sky-50 text-sky-600 rounded-xl font-bold hover:bg-sky-100 transition-colors shadow-sm">ไปช้อปเลย!</button>
-                    </div>
-                  )}
+                    ))}
+                    {artistCategories.length === 0 && <div className="text-center py-6 text-slate-400 text-xs font-medium">ยังไม่มีรายชื่อศิลปิน</div>}
+                  </TableScrollWrapper>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* USER PROFILE TAB */}
-        {activeTab === 'profile' && currentUser && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 ease-out">
-            <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl border-b border-slate-200/50 px-4 sm:px-6 lg:px-8 xl:px-10 py-4 sm:py-6 flex justify-between items-center">
-              <h2 className="text-3xl font-bold text-slate-800 tracking-wide flex items-center gap-3">
-                โปรไฟล์ของฉัน <span className="text-fuchsia-500/40 text-2xl hidden sm:inline">/ PROFILE</span>
-              </h2>
-              <button onClick={handleLogout} className="md:hidden flex items-center gap-2 bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-sm font-bold border border-rose-100">
-                <LogOut className="w-4 h-4" /> ออกจากระบบ
-              </button>
-            </div>
-            
-            <div className="px-4 sm:px-6 lg:px-8 xl:px-10 pt-6 pb-20 max-w-5xl mx-auto space-y-6">
-              
-              {/* Profile Card & Edit Form */}
-              <div className="bg-white/70 backdrop-blur-xl p-6 sm:p-8 rounded-3xl shadow-sm border border-white flex flex-col lg:flex-row gap-8">
-                <div className="flex flex-col items-center lg:w-1/3">
-                  <label 
-                    className={`relative cursor-pointer group mb-4 rounded-full transition-all duration-300 ${isProfileImgDragging ? 'scale-110 ring-4 ring-fuchsia-400 ring-offset-4 ring-offset-white' : ''}`}
-                    onDragOver={(e) => { e.preventDefault(); setIsProfileImgDragging(true); }}
-                    onDragLeave={() => setIsProfileImgDragging(false)}
-                    onDrop={handleProfileImageDrop}
-                  >
-                    <input type="file" accept="image/png, image/jpeg, image/webp" className="hidden" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleProfileImageFile(file);
-                    }} />
-                    <img src={profileAvatarUrl || currentUser?.avatar} alt="Profile" className="w-32 h-32 rounded-full border-4 border-white shadow-md object-cover group-hover:opacity-80 transition-opacity"/>
-                    <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity flex-col gap-1">
-                      <PenTool className="w-6 h-6 text-white"/>
-                      <span className="text-[10px] text-white font-bold tracking-wider">ลากมาวาง</span>
-                    </div>
-                  </label>
-                  <h3 className="text-2xl font-black text-slate-800 mb-1">{currentUser?.name}</h3>
-                  <p className="text-sm text-slate-500 font-mono mb-4">@{currentUser?.username}</p>
-                  <span className="px-4 py-1.5 bg-fuchsia-50 text-fuchsia-600 rounded-xl text-xs font-bold border border-fuchsia-100 mb-6 text-center">
-                    {currentUser?.role === 'admin' ? 'ผู้ดูแลระบบ (Admin)' : currentUser?.role === 'staff' ? 'เจ้าหน้าที่ (Staff)' : 'สมาชิกระดับทั่วไป (User)'}
-                  </span>
-                </div>
-                
-                <form onSubmit={handleUpdateProfile} className="flex-1 space-y-5">
-                  <div className="bg-slate-50/80 p-6 rounded-2xl border border-slate-100 space-y-4">
-                    <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200/60 pb-3"><User className="w-4 h-4 text-fuchsia-500"/> ข้อมูลลูกค้า & ชำระเงิน</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">ชื่อ-นามสกุล</label><input name="name" defaultValue={currentUser?.name} required className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">อีเมล</label><input name="email" type="email" defaultValue={currentUser?.email || ''} required className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">Facebook</label><input name="facebook" defaultValue={currentUser?.facebook || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">เบอร์โทรศัพท์ติดต่อ</label><input name="phone" defaultValue={currentUser?.phone || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200/60">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5">ธนาคาร</label>
-                        <select name="bankName" defaultValue={currentUser?.bankName || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700">
-                          <option value="">ไม่ระบุ</option>
-                          {bankOptions.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                        </select>
+                {/* 3. Event Categories */}
+                <div className="bg-white/70 backdrop-blur-xl p-5 sm:p-6 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-white flex flex-col h-[400px]">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4 flex-shrink-0">
+                    <div className="flex items-center gap-2.5"><div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><Ticket className="w-4 h-4"/></div><h3 className="text-base font-black text-slate-800">หมวดหมู่งาน/อีเวนต์</h3></div>
+                    <button onClick={() => handleAddCategory('event')} className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"><Plus className="w-3.5 h-3.5"/> เพิ่ม</button>
+                  </div>
+                  <TableScrollWrapper className="space-y-3 overflow-y-auto flex-1 pr-2 mt-4">
+                    {eventCategories.map((cat) => (
+                      <div key={cat.id} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <input type="text" value={cat.name} onChange={(e) => handleUpdateCategory('event', cat.id, e.target.value)} className="flex-1 w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-emerald-400" />
+                        <button onClick={() => handleRemoveCategory('event', cat.id)} className="p-2 text-rose-400 hover:bg-rose-50 rounded-lg flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
                       </div>
-                      <div><label className="block text-xs font-bold text-slate-500 mb-1.5">เลขบัญชี</label><input name="bankAccount" defaultValue={currentUser?.bankAccount || ''} placeholder="xxx-x-xxxxx-x" className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all font-bold text-slate-700" /></div>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50/80 p-6 rounded-2xl border border-slate-100 space-y-4">
-                    <h4 className="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-200/60 pb-3"><Truck className="w-4 h-4 text-fuchsia-500"/> ข้อมูลจัดส่ง</h4>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1.5">ที่อยู่สำหรับจัดส่ง (เริ่มต้น)</label>
-                      <textarea name="address" rows={3} defaultValue={currentUser?.address || ''} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/10 transition-all resize-none font-bold text-slate-700"></textarea>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-2 flex justify-end">
-                    <button type="submit" className="w-full sm:w-auto px-8 py-3 bg-fuchsia-600 hover:bg-fuchsia-700 text-white rounded-xl font-bold shadow-[0_4px_15px_rgba(192,38,211,0.25)] transition-all flex items-center justify-center gap-2">
-                      <Save className="w-4 h-4" /> บันทึกการเปลี่ยนแปลง
-                    </button>
-                  </div>
-                </form>
+                    ))}
+                    {eventCategories.length === 0 && <div className="text-center py-6 text-slate-400 text-xs font-medium">ยังไม่มีหมวดหมู่งาน</div>}
+                  </TableScrollWrapper>
+                </div>
               </div>
 
             </div>
