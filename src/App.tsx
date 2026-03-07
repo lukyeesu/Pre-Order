@@ -782,6 +782,11 @@ function App() {
   // Drag & Drop State
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const dragOverIdxRef = useRef<number | null>(null);
+  
+  useEffect(() => {
+    dragOverIdxRef.current = dragOverIdx;
+  }, [dragOverIdx]);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState<boolean>(false);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string>('');
@@ -2217,8 +2222,10 @@ function App() {
     draftTotal = draftSubtotal + draftCarryingFee + Number(draftOrder.shippingFee || 0) - Number(draftOrder.discount || 0);
   }
 
-  const handleDrop = async (targetIndex: number) => {
-    if (draggedIdx === null || draggedIdx === targetIndex) {
+  const handleDrop = async (targetIndex: number, overrideDraggedIdx?: number) => {
+    const currentDraggedIdx = overrideDraggedIdx !== undefined ? overrideDraggedIdx : draggedIdx;
+    
+    if (currentDraggedIdx === null || currentDraggedIdx === targetIndex) {
       setDraggedIdx(null);
       setDragOverIdx(null);
       return;
@@ -2233,8 +2240,8 @@ function App() {
     const newProducts = [...products];
     
     // === แก้ไข: กลับมาใช้ระบบ "แทรกแล้วดันตัวที่เหลือลงไป (Insert & Shift)" ตามที่คุณต้องการ ===
-    const draggedItem = newProducts[draggedIdx];
-    newProducts.splice(draggedIdx, 1); // ดึงตัวที่ลากออกมาจากตำแหน่งเดิม
+    const draggedItem = newProducts[currentDraggedIdx];
+    newProducts.splice(currentDraggedIdx, 1); // ดึงตัวที่ลากออกมาจากตำแหน่งเดิม
     newProducts.splice(targetIndex, 0, draggedItem); // เอาไปแทรกในตำแหน่งใหม่ และดันตัวที่เหลือลงไป
 
     setProducts(newProducts);
@@ -3668,7 +3675,7 @@ function App() {
                     const isHovered = dragOverIdx === index && draggedIdx !== index;
                     const dragDirection = draggedIdx !== null && dragOverIdx !== null ? (draggedIdx < dragOverIdx ? 'left' : 'right') : '';
 
-                    let cardClasses = `group bg-white/70 backdrop-blur-xl border border-white rounded-2xl p-3 sm:p-5 flex flex-col relative overflow-hidden transition-all duration-300 ease-out shadow-[0_8px_30px_rgba(0,0,0,0.04)] cursor-grab active:cursor-grabbing animate-in fade-in zoom-in-95 slide-in-from-bottom-8`;
+                    let cardClasses = `product-card group bg-white/70 backdrop-blur-xl border border-white rounded-2xl p-3 sm:p-5 flex flex-col relative overflow-hidden transition-all duration-300 ease-out shadow-[0_8px_30px_rgba(0,0,0,0.04)] sm:cursor-grab sm:active:cursor-grabbing animate-in fade-in zoom-in-95 slide-in-from-bottom-8`;
                     if (isDragged) cardClasses += ` opacity-30 scale-90 border-dashed border-2 border-blue-400 shadow-none z-0`;
                     else if (isHovered) cardClasses += ` ${dragDirection === 'left' ? '-translate-x-3' : 'translate-x-3'} rotate-2 border-${dragDirection === 'left' ? 'r' : 'l'}-4 border-${dragDirection === 'left' ? 'r' : 'l'}-blue-500 shadow-xl z-20 scale-[0.98] bg-blue-50/90`;
                     else cardClasses += ` hover:-translate-y-1 hover:border-blue-200 hover:shadow-[0_8px_30px_rgba(37,99,235,0.12)] z-10`;
@@ -3676,6 +3683,7 @@ function App() {
                     return (
                       <div 
                         key={product.id} draggable 
+                        data-index={index}
                         style={{ animationDelay: `${Math.min(index * 80, 800)}ms`, animationFillMode: 'both', animationDuration: '1000ms' }}
                         onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setTimeout(() => setDraggedIdx(index), 0); }}
                         onDragOver={(e) => { e.preventDefault(); if (dragOverIdx !== index) setDragOverIdx(index); }}
@@ -3692,8 +3700,38 @@ function App() {
                           <div className="absolute top-4 -left-2 bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white text-xs sm:text-sm font-black px-4 py-1.5 rounded-r-xl z-20 shadow-lg flex items-center gap-1.5 animate-pulse"><Sparkles className="w-4 h-4"/> NEW</div>
                         )}
                         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <div className="absolute top-2 left-2 z-20 text-slate-300 group-hover:text-blue-500 bg-white/80 backdrop-blur-sm rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm pointer-events-none">
-                          <GripHorizontal className="w-5 h-5" />
+                        <div 
+                          className="absolute top-2 left-2 z-30 text-slate-400 sm:text-slate-300 sm:group-hover:text-blue-500 bg-white/90 sm:bg-white/80 backdrop-blur-sm rounded p-2 sm:p-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm cursor-grab active:cursor-grabbing touch-none"
+                          onTouchStart={(e) => { 
+                              e.stopPropagation();
+                              setDraggedIdx(index); 
+                          }}
+                          onTouchMove={(e) => {
+                              e.stopPropagation();
+                              const touch = e.touches[0];
+                              const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                              const card = element?.closest('.product-card');
+                              if (card) {
+                                  const targetIdx = Number(card.getAttribute('data-index'));
+                                  if (!isNaN(targetIdx)) {
+                                      setDragOverIdx(prev => prev !== targetIdx ? targetIdx : prev);
+                                  }
+                              } else {
+                                  setDragOverIdx(null);
+                              }
+                          }}
+                          onTouchEnd={(e) => {
+                              e.stopPropagation();
+                              const targetIdx = dragOverIdxRef.current;
+                              if (targetIdx !== null && targetIdx !== index) {
+                                  handleDrop(targetIdx, index);
+                              } else {
+                                  setDraggedIdx(null);
+                                  setDragOverIdx(null);
+                              }
+                          }}
+                        >
+                          <GripHorizontal className="w-5 h-5 pointer-events-none" />
                         </div>
                         <div className={`flex-1 flex flex-col ${draggedIdx !== null ? 'pointer-events-none' : ''}`}>
                           <div onClick={() => openModal('product_details', product)} className="cursor-pointer w-full aspect-square bg-slate-50 rounded-xl mb-3 sm:mb-4 flex items-center justify-center border border-slate-100 shadow-inner group-hover:bg-blue-50/50 transition-colors relative overflow-hidden">
